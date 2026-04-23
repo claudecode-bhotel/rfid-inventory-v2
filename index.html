@@ -1,0 +1,2593 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="color-scheme" content="light">
+<title>RFID タオル在庫管理 v2</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>📦</text></svg>">
+<style>
+:root {
+  color-scheme: light;
+  --primary: #F5A623;
+  --primary-dark: #E8961B;
+  --primary-light: #FFF8EC;
+  --primary-lighter: #FFFDF7;
+  --success: #34C759;
+  --success-light: #EAFAF0;
+  --warning: #FF6B35;
+  --warning-light: #FFF1EB;
+  --danger: #FF3B30;
+  --danger-light: #FFF0EF;
+  --bg: #F8F8FB;
+  --card: #FFFFFF;
+  --text: #1A1A2E;
+  --text2: #8E8EA0;
+  --text3: #C0C0CC;
+  --border: #EBEBF0;
+  --radius: 20px;
+  --radius-sm: 14px;
+  --shadow: 0 2px 12px rgba(26,26,46,.06);
+  --shadow-lg: 0 8px 30px rgba(26,26,46,.08);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, 'SF Pro Display', 'Segoe UI', 'Noto Sans JP', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+/* ========== ヘッダー ========== */
+.header { background: linear-gradient(135deg, #F5A623 0%, #F7B844 100%); color: #fff; padding: 20px 20px 16px; position: sticky; top: 0; z-index: 100; border-radius: 0 0 24px 24px; box-shadow: 0 4px 20px rgba(245,166,35,.25); }
+.header-row { display: flex; justify-content: space-between; align-items: center; }
+.header-left { flex: 1; }
+.header h1 { font-size: 18px; font-weight: 700; letter-spacing: -.3px; }
+.header .sub { font-size: 11px; opacity: .75; margin-top: 3px; font-weight: 400; }
+.header .status { font-size: 11px; margin-top: 8px; display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,.18); padding: 5px 10px; border-radius: 20px; width: fit-content; }
+.lang-toggle { background: rgba(255,255,255,.25); color: #fff; border: none; border-radius: 10px; padding: 6px 14px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: all .2s; backdrop-filter: blur(4px); }
+.lang-toggle:active { transform: scale(.95); background: rgba(255,255,255,.4); }
+.header .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.dot.ok { background: #fff; box-shadow: 0 0 6px rgba(255,255,255,.8); }
+.dot.ng { background: #FF3B30; }
+.dot.loading { background: #fff; animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+
+/* ========== タブ ========== */
+.tab-nav { display: flex; background: var(--card); border-bottom: none; position: sticky; top: 72px; z-index: 99; padding: 6px 12px; gap: 4px; box-shadow: var(--shadow); }
+.tab-btn { flex: 1; padding: 10px 4px; text-align: center; font-size: 11px; font-weight: 600; color: var(--text2); border: none; background: none; cursor: pointer; border-radius: 12px; transition: all .25s; border-bottom: none; }
+.tab-btn.active { color: #fff; background: var(--primary); box-shadow: 0 2px 8px rgba(245,166,35,.35); }
+
+/* ========== コンテンツ ========== */
+.tab-content { display: none; padding: 16px; padding-bottom: 80px; }
+.tab-content.active { display: block; }
+.card { background: var(--card); border-radius: var(--radius); padding: 20px; margin-bottom: 14px; box-shadow: var(--shadow); border: 1px solid var(--border); }
+.card h2 { font-size: 15px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; color: var(--text); }
+
+/* ========== ボタン ========== */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 14px 24px; border: none; border-radius: var(--radius-sm); font-size: 15px; font-weight: 700; cursor: pointer; transition: all .2s; width: 100%; letter-spacing: -.2px; }
+.btn:active { transform: scale(.97); }
+.btn-primary { background: linear-gradient(135deg, #F5A623 0%, #F7B844 100%); color: #fff; box-shadow: 0 4px 14px rgba(245,166,35,.3); }
+.btn-primary:hover { box-shadow: 0 6px 20px rgba(245,166,35,.4); }
+.btn-primary:disabled { background: var(--border); color: var(--text3); box-shadow: none; cursor: not-allowed; }
+.btn-success { background: linear-gradient(135deg, #34C759, #40D468); color: #fff; box-shadow: 0 4px 14px rgba(52,199,89,.3); }
+.btn-danger { background: linear-gradient(135deg, #FF3B30, #FF5247); color: #fff; box-shadow: 0 4px 14px rgba(255,59,48,.3); }
+.btn-outline { background: none; border: 2px solid var(--primary); color: var(--primary); box-shadow: none; }
+.btn-outline:active { background: var(--primary-light); }
+.btn-sm { padding: 8px 16px; font-size: 13px; width: auto; border-radius: 10px; }
+
+/* ========== フォーム ========== */
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 8px; color: var(--text2); text-transform: uppercase; letter-spacing: .5px; }
+select, input[type="text"], input[type="url"], textarea { width: 100%; padding: 12px 16px; border: 2px solid var(--border); border-radius: var(--radius-sm); font-size: 15px; background: var(--bg); color: var(--text); transition: all .2s; }
+select:focus, input[type="text"]:focus, input[type="url"]:focus, textarea:focus { outline: none; border-color: var(--primary); background: #fff; box-shadow: 0 0 0 4px rgba(245,166,35,.12); }
+textarea { min-height: 80px; resize: vertical; font-family: monospace; font-size: 13px; }
+
+/* ========== 操作種別 ========== */
+.op-select { display: flex; gap: 10px; margin-bottom: 16px; }
+.op-btn { flex: 1; padding: 16px 8px; text-align: center; border: 2px solid var(--border); border-radius: var(--radius); background: var(--card); cursor: pointer; transition: all .25s; }
+.op-btn:active { transform: scale(.96); }
+.op-btn .icon { font-size: 32px; display: block; margin-bottom: 6px; }
+.op-btn .label { font-size: 13px; font-weight: 700; color: var(--text); }
+.op-btn.selected { border-color: var(--primary); background: var(--primary-light); box-shadow: 0 2px 10px rgba(245,166,35,.15); }
+.op-btn[data-op="arrival"].selected { border-color: var(--success); background: var(--success-light); box-shadow: 0 2px 10px rgba(52,199,89,.15); }
+.op-btn[data-op="shipment"].selected { border-color: var(--warning); background: var(--warning-light); box-shadow: 0 2px 10px rgba(255,107,53,.15); }
+.op-btn[data-op="return"].selected { border-color: var(--primary); background: var(--primary-light); box-shadow: 0 2px 10px rgba(245,166,35,.15); }
+
+/* ========== 入荷セクション ========== */
+.op-btn-arrival-section { margin-top: 10px; padding: 14px; border-radius: var(--radius-sm); background: var(--warning-light); border: 1px solid rgba(255,107,53,.2); }
+.op-btn-arrival-section summary { cursor: pointer; font-size: 13px; font-weight: 700; color: var(--warning); display: flex; align-items: center; gap: 8px; user-select: none; }
+.op-btn-arrival-section[open] { background: var(--warning-light); }
+.op-btn-arrival-section .op-btn { margin-top: 12px; }
+
+/* ========== スキャンエリア ========== */
+.scan-area { border: 3px dashed var(--border); border-radius: var(--radius); padding: 28px 20px; text-align: center; transition: all .3s; margin-bottom: 16px; background: var(--bg); cursor: pointer; }
+.scan-area:active { transform: scale(.98); }
+.scan-area.scanning { border-color: var(--primary); border-style: solid; background: linear-gradient(135deg, var(--primary-light) 0%, #FFF8EC 100%); animation: scan-glow 2s ease-in-out infinite; }
+@keyframes scan-glow { 0%,100% { box-shadow: 0 0 0 0 rgba(245,166,35,.1); } 50% { box-shadow: 0 0 0 12px rgba(245,166,35,.08); } }
+.scan-area .scan-icon { font-size: 52px; margin-bottom: 10px; }
+.scan-area .scan-label { font-size: 14px; color: var(--text2); font-weight: 500; }
+.scan-area.scanning .scan-label { color: var(--primary-dark); font-weight: 700; }
+.scan-count { font-size: 28px; font-weight: 800; color: var(--primary); margin: 8px 0; }
+#scan-input, #bc-scan-input { position: fixed; top: -100px; left: 0; width: 10px; height: 10px; opacity: 0.01; z-index: 1; caret-color: transparent; }
+
+/* ========== タグリスト ========== */
+.tag-list { margin: 8px 0; }
+.tag-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-radius: 12px; font-size: 13px; margin-bottom: 6px; background: var(--bg); }
+.tag-item .tag-id { font-weight: 600; font-family: monospace; }
+.tag-item .tag-remove { color: var(--danger); cursor: pointer; font-size: 18px; padding: 0 4px; }
+
+/* ========== 不明タグ ========== */
+.unknown-tags-section { padding: 14px; border-radius: var(--radius-sm); background: var(--warning-light); border: none; margin: 12px 0; }
+.unknown-tags-section h3 { font-size: 13px; font-weight: 700; color: var(--warning); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.unknown-tags-list { display: flex; flex-direction: column; gap: 6px; }
+.unknown-tag-item { padding: 8px 10px; background: #fff; border-radius: 10px; border-left: 3px solid var(--warning); font-size: 12px; font-family: monospace; color: var(--warning); }
+
+/* ========== 結果表示 ========== */
+.result-box { padding: 16px; border-radius: var(--radius-sm); margin: 14px 0; }
+.result-box.success { background: var(--success-light); border: none; }
+.result-box.error { background: var(--danger-light); border: none; }
+.result-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(0,0,0,.04); font-size: 14px; }
+.result-item:last-child { border: none; }
+.result-item .count { font-weight: 800; font-size: 20px; color: var(--primary-dark); }
+
+/* ========== サマリーカード ========== */
+.summary-row { display: flex; gap: 10px; margin-bottom: 14px; }
+.summary-card { flex: 1; padding: 16px 10px; border-radius: var(--radius); text-align: center; border: 1px solid var(--border); box-shadow: var(--shadow); }
+.summary-card .num { font-size: 30px; font-weight: 800; }
+.summary-card .lbl { font-size: 10px; font-weight: 600; color: var(--text2); margin-top: 4px; text-transform: uppercase; letter-spacing: .5px; }
+.sc-green { background: var(--success-light); color: var(--success); border-color: rgba(52,199,89,.15); }
+.sc-blue { background: var(--primary-light); color: var(--primary-dark); border-color: rgba(245,166,35,.15); }
+.sc-orange { background: var(--warning-light); color: var(--warning); border-color: rgba(255,107,53,.15); }
+
+/* ========== 在庫テーブル ========== */
+.inv-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+.inv-table th { font-size: 11px; font-weight: 700; color: var(--text2); padding: 10px 8px; text-align: left; border-bottom: 2px solid var(--border); text-transform: uppercase; letter-spacing: .5px; }
+.inv-table td { padding: 12px 8px; border-bottom: 1px solid var(--border); font-size: 14px; }
+.inv-table .num { text-align: right; font-weight: 700; font-size: 17px; }
+.inv-table .total-row td { font-weight: 800; border-top: 2px solid var(--text); color: var(--primary-dark); }
+
+/* ========== 棚卸し結果 ========== */
+.stocktake-results { margin-top: 16px; }
+.stocktake-result-section { padding: 14px; border-radius: var(--radius-sm); margin-bottom: 10px; border: none; }
+.stocktake-result-section h3 { font-size: 13px; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.stocktake-result-matched { background: var(--success-light); }
+.stocktake-result-matched h3 { color: var(--success); }
+.stocktake-result-missing { background: var(--warning-light); }
+.stocktake-result-missing h3 { color: var(--warning); }
+.stocktake-result-extra { background: var(--danger-light); }
+.stocktake-result-extra h3 { color: var(--danger); }
+.stocktake-result-count { font-size: 26px; font-weight: 800; display: inline-block; }
+
+/* ========== バーコード棚卸し ========== */
+.bc-mode-toggle { display: flex; gap: 4px; margin-bottom: 14px; background: var(--bg); border-radius: var(--radius-sm); padding: 4px; }
+.bc-mode-btn { flex: 1; padding: 10px 8px; border: none; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; background: transparent; color: var(--text2); transition: all .2s; }
+.bc-mode-btn.active { background: var(--primary); color: #fff; box-shadow: 0 2px 8px rgba(245,166,35,.25); }
+.bc-scan-result { display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--success-light); border-radius: var(--radius-sm); margin-bottom: 12px; border: 1px solid rgba(52,199,89,.15); }
+.bc-scan-result .bc-item-name { font-size: 15px; font-weight: 700; color: var(--success); }
+.bc-scan-result .bc-item-cat { font-size: 11px; color: var(--text2); }
+/* bc-qty-grid/btn removed: now uses numeric text input */
+.bc-list-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: var(--bg); border-radius: 10px; margin-bottom: 6px; }
+.bc-list-item .bc-list-name { font-size: 13px; font-weight: 600; }
+.bc-list-item .bc-list-cat { font-size: 11px; color: var(--text2); }
+.bc-list-item .bc-list-qty { font-size: 16px; font-weight: 800; color: var(--primary-dark); min-width: 50px; text-align: right; }
+.bc-list-item .bc-list-remove { background: none; border: none; color: var(--danger); font-size: 18px; cursor: pointer; padding: 0 4px; margin-left: 8px; }
+.bc-summary-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; font-weight: 600; border-top: 1px solid var(--border); margin-top: 8px; }
+
+/* ========== 履歴 ========== */
+.hist-item { padding: 12px 0; border-bottom: 1px solid var(--border); }
+.hist-item:last-child { border: none; }
+.hist-meta { font-size: 12px; color: var(--text2); margin-top: 4px; }
+.hist-op { display: inline-block; padding: 3px 10px; border-radius: 8px; font-size: 11px; font-weight: 700; color: #fff; }
+.hist-op.op-arrival { background: var(--success); }
+.hist-op.op-shipment { background: var(--warning); }
+.hist-op.op-return { background: var(--primary); }
+
+/* ========== トースト ========== */
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 14px 28px; border-radius: 16px; color: #fff; font-size: 14px; font-weight: 600; z-index: 999; opacity: 0; transition: all .3s; pointer-events: none; backdrop-filter: blur(10px); }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+.toast.ok { background: rgba(52,199,89,.92); box-shadow: 0 4px 20px rgba(52,199,89,.3); }
+.toast.err { background: rgba(255,59,48,.92); box-shadow: 0 4px 20px rgba(255,59,48,.3); }
+
+/* ========== ローディング ========== */
+.spinner { width: 28px; height: 28px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .7s linear infinite; margin: 24px auto; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading { text-align: center; padding: 24px; }
+
+/* ========== テスト入力 ========== */
+.test-section { border-top: 1px solid var(--border); padding-top: 14px; margin-top: 14px; }
+.test-section summary { font-size: 13px; color: var(--text2); cursor: pointer; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<!-- ヘッダー -->
+<div class="header">
+  <div class="header-row">
+    <div class="header-left">
+      <h1 data-i18n="app.title">RFID タオル在庫管理システム</h1>
+      <div class="sub" data-i18n="app.subtitle">Phase 2.2 — Bridge API高速読取 + DataWedge対応</div>
+    </div>
+    <button class="lang-toggle" id="lang-toggle" onclick="toggleLanguage()">EN</button>
+  </div>
+  <div class="status" id="api-status">
+    <span class="dot loading" id="status-dot"></span>
+    <span id="status-text" data-i18n="status.checking">API接続確認中...</span>
+  </div>
+  <div class="status" id="bridge-status" style="margin-top:4px">
+    <span class="dot loading" id="bridge-dot"></span>
+    <span id="bridge-text">Bridge検出中...</span>
+  </div>
+</div>
+
+<!-- DataWedge用の非表示入力フィールド（タブ外に配置し常時アクセス可能） -->
+<input type="text" id="scan-input" inputmode="none" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+
+<!-- タブ -->
+<div class="tab-nav">
+  <button class="tab-btn active" data-tab="scan" data-i18n="tab.scan">スキャン</button>
+  <button class="tab-btn" data-tab="inventory" data-i18n="tab.inventory">在庫一覧</button>
+  <button class="tab-btn" data-tab="stocktake" data-i18n="tab.stocktake">棚卸し</button>
+  <button class="tab-btn" data-tab="warehouse" data-i18n="tab.warehouse">倉庫作業</button>
+  <button class="tab-btn" data-tab="history" data-i18n="tab.history">履歴</button>
+  <button class="tab-btn" data-tab="settings" data-i18n="tab.settings">設定</button>
+</div>
+
+<!-- ===== スキャンタブ ===== -->
+<div id="tab-scan" class="tab-content active">
+  <div class="card">
+    <h2 data-i18n="scan.selectOp">操作種別を選択</h2>
+    <div class="op-select">
+      <div class="op-btn selected" data-op="shipment" onclick="selectOp(this)">
+        <span class="icon">🚚</span><span class="label" data-i18n="op.shipment">出庫</span>
+      </div>
+      <div class="op-btn" data-op="return" onclick="selectOp(this)">
+        <span class="icon">🏠</span><span class="label" data-i18n="op.return">入庫</span>
+      </div>
+    </div>
+    <details class="op-btn-arrival-section">
+      <summary data-i18n="op.arrivalSection">⚠ 入荷（低頻度操作）</summary>
+      <div class="op-btn" data-op="arrival" onclick="selectOp(this)">
+        <span class="icon">📦</span><span class="label" data-i18n="op.arrival">入荷</span>
+      </div>
+    </details>
+    <div class="form-group" id="property-group" style="display:block">
+      <label data-i18n="scan.property">搬入先物件</label>
+      <select id="property-select"><option value="" data-i18n="scan.selectProperty">-- 物件を選択 --</option></select>
+    </div>
+    <div class="form-group">
+      <label data-i18n="scan.operator">実行者</label>
+      <input type="text" id="operator-input" data-i18n-placeholder="scan.operatorPlaceholder" placeholder="名前を入力" value="">
+    </div>
+  </div>
+
+  <!-- RFIDスキャンエリア -->
+  <div class="card">
+    <h2 data-i18n="scan.rfidTitle">📡 RFID読み取り</h2>
+    <div class="scan-area" id="scan-area" onclick="toggleScan()">
+      <div class="scan-icon" id="scan-icon">📡</div>
+      <div class="scan-label" id="scan-label" data-i18n="scan.tapToStart">タップしてスキャン開始</div>
+      <div class="scan-count" id="scan-count" style="display:none"><span data-i18n="scan.readCount">読取:</span> <span id="tag-count-num">0</span> <span data-i18n="scan.items">件</span></div>
+    </div>
+    <!-- 読み取り状況（品目別集計） -->
+    <div id="scanned-tags" style="display:none">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+        <strong style="font-size:13px" data-i18n="scan.readStatus">読み取り状況</strong>
+        <button class="btn btn-sm btn-outline" onclick="clearTags()" data-i18n="scan.clearAll">全クリア</button>
+      </div>
+      <div id="tag-list"></div>
+    </div>
+
+    <!-- テスト用手動入力 -->
+    <details class="test-section">
+      <summary data-i18n="scan.testManual">テスト用：手動入力 / タグ選択</summary>
+      <div style="margin-top: 10px;">
+        <textarea id="manual-tags" placeholder="タグIDを1行1件で入力&#10;例: BT-0001&#10;    BT-0002"></textarea>
+        <button class="btn btn-sm btn-outline" onclick="addManualTags()" style="margin-top:6px" data-i18n="scan.addManual">手動タグ追加</button>
+        <div id="test-tag-grid" style="margin-top:10px"></div>
+      </div>
+    </details>
+  </div>
+
+  <!-- 実行ボタン -->
+  <button class="btn btn-primary" id="exec-btn" onclick="doExecuteScan()" disabled>
+    <span id="exec-btn-text">スキャン実行（0件）</span>
+  </button>
+
+  <!-- 結果表示 -->
+  <div id="scan-result"></div>
+</div>
+
+<!-- ===== 在庫一覧タブ ===== -->
+<div id="tab-inventory" class="tab-content">
+  <div class="summary-row">
+    <div class="summary-card sc-green"><div class="num" id="inv-clean">-</div><div class="lbl" data-i18n="inv.clean">全在庫</div></div>
+    <div class="summary-card sc-blue"><div class="num" id="inv-all">-</div><div class="lbl" data-i18n="inv.all">管理総数</div></div>
+    <div class="summary-card sc-orange"><div class="num" id="inv-shipped">-</div><div class="lbl" data-i18n="inv.shipped">出庫中</div></div>
+  </div>
+  <div class="card">
+    <h2 data-i18n="inv.byItem">品目別在庫</h2>
+    <div id="inv-table-wrap"><div class="loading"><div class="spinner"></div></div></div>
+  </div>
+  <button class="btn btn-outline" onclick="loadInventory()" data-i18n="common.refresh">更新</button>
+</div>
+
+<!-- ===== 棚卸しタブ ===== -->
+<div id="tab-stocktake" class="tab-content">
+  <div class="card">
+    <h2 data-i18n="stocktake.title">📋 棚卸し</h2>
+    <!-- モード切り替え -->
+    <div class="bc-mode-toggle">
+      <button class="bc-mode-btn active" id="mode-rfid-btn" onclick="switchStocktakeMode('rfid')">📡 RFID</button>
+      <button class="bc-mode-btn" id="mode-barcode-btn" onclick="switchStocktakeMode('barcode')">📊 バーコード</button>
+    </div>
+
+    <!-- === RFIDモード === -->
+    <div id="stocktake-rfid-mode">
+      <p style="font-size:13px; color:var(--text2); margin-bottom:12px" data-i18n="stocktake.desc">
+        物件を選択し、その場所にあるすべてのタオルをスキャンして在庫の正確性を確認します。
+      </p>
+      <div style="margin-bottom:12px">
+        <label style="font-size:13px; font-weight:600; display:block; margin-bottom:4px" data-i18n="stocktake.selectProperty">棚卸し対象</label>
+        <select id="stocktake-property-select" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:14px; background:var(--bg)">
+          <option value="__all__" data-i18n="stocktake.allLocations">すべての場所</option>
+          <option value="メイン倉庫" data-i18n="stocktake.mainWarehouse">メイン倉庫</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" id="stocktake-start-btn" onclick="startStocktake()" data-i18n="stocktake.start">棚卸し開始</button>
+      <button class="btn btn-success" id="stocktake-finish-btn" onclick="finishStocktake()" style="display:none" data-i18n="stocktake.finish">棚卸し完了</button>
+      <button class="btn btn-outline" id="stocktake-cancel-btn" onclick="cancelStocktake()" style="display:none" data-i18n="stocktake.cancel">キャンセル</button>
+    </div>
+
+    <!-- === バーコードモード === -->
+    <div id="stocktake-barcode-mode" style="display:none">
+      <p style="font-size:13px; color:var(--text2); margin-bottom:12px">
+        バーコードをスキャンし、数量を選択して棚卸しを行います。
+      </p>
+      <div style="margin-bottom:12px">
+        <label style="font-size:13px; font-weight:600; display:block; margin-bottom:4px">棚卸し物件</label>
+        <select id="bc-property-select" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:14px; background:var(--bg)">
+          <option value="__all__">すべての場所</option>
+          <option value="メイン倉庫">メイン倉庫</option>
+        </select>
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:13px; font-weight:600; display:block; margin-bottom:4px">実行者</label>
+        <input type="text" id="bc-operator" placeholder="名前を入力" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:14px; background:var(--bg)">
+      </div>
+
+      <!-- バーコードスキャンエリア -->
+      <div class="scan-area" id="bc-scan-area" onclick="focusBarcodeInput()" style="cursor:pointer; margin-bottom:14px">
+        <div class="scan-icon">📊</div>
+        <div class="scan-label" id="bc-scan-label">タップしてバーコードスキャン開始</div>
+      </div>
+      <input type="text" id="bc-scan-input" inputmode="none" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+
+      <!-- スキャン結果 → 数量選択 -->
+      <div id="bc-scanned-item" style="display:none">
+        <div class="bc-scan-result" id="bc-scan-result-info">
+          <div style="flex:1">
+            <div class="bc-item-name" id="bc-scanned-name">-</div>
+            <div class="bc-item-cat" id="bc-scanned-cat">-</div>
+          </div>
+        </div>
+        <label style="font-size:13px; font-weight:600; display:block; margin-bottom:8px">数量を入力</label>
+        <div style="display:flex; gap:8px; margin-bottom:12px">
+          <input type="text" id="bc-qty-input" inputmode="numeric" pattern="[0-9]*" placeholder="数量を入力" autocomplete="off"
+            style="flex:1; padding:14px 12px; border:2px solid var(--border); border-radius:var(--radius-sm); font-size:18px; font-weight:800; text-align:center; background:var(--card); outline:none; transition:border-color .2s;"
+            onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--border)'" oninput="onBcQtyInput()">
+        </div>
+        <button class="btn btn-primary" id="bc-add-btn" onclick="addBcItem()" style="width:100%" disabled>リストに追加</button>
+      </div>
+
+      <!-- 棚卸しリスト -->
+      <div id="bc-list-area" style="margin-top:14px">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
+          <strong style="font-size:13px">棚卸しリスト</strong>
+          <button class="btn btn-sm btn-outline" onclick="clearBcList()">全クリア</button>
+        </div>
+        <div id="bc-item-list"><p style="font-size:12px; color:var(--text3); text-align:center; padding:16px 0">まだ品目がありません</p></div>
+        <div id="bc-summary" style="display:none">
+          <div class="bc-summary-row">
+            <span>品目数</span><span id="bc-summary-items">0</span>
+          </div>
+          <div class="bc-summary-row">
+            <span>合計数量</span><span id="bc-summary-qty">0</span>
+          </div>
+        </div>
+        <button class="btn btn-success" id="bc-submit-btn" onclick="submitBcStocktake()" style="width:100%; margin-top:12px; display:none">📤 棚卸し結果を送信</button>
+      </div>
+
+      <!-- マスタデータ追加 -->
+      <div style="margin-top:20px; padding-top:16px; border-top:2px solid var(--border)">
+        <button class="btn btn-outline" id="bc-master-add-toggle" onclick="toggleBcMasterAddMode()" style="width:100%">➕ マスタデータ追加</button>
+      </div>
+      <div id="bc-master-add-form" style="display:none; margin-top:14px">
+        <div class="card" style="border:2px solid var(--primary); background:var(--primary-lighter)">
+          <h2 style="font-size:14px; margin-bottom:12px">📝 バーコードマスタ登録</h2>
+          <p style="font-size:12px; color:var(--text2); margin-bottom:12px">バーコードをスキャンするとJISコードが自動入力されます。手動入力も可能です。</p>
+
+          <div class="scan-area" id="bc-master-scan-area" onclick="focusBcMasterScanInput()" style="cursor:pointer; margin-bottom:14px; padding:12px">
+            <div class="scan-icon" id="bc-master-scan-icon" style="font-size:24px">📷</div>
+            <div class="scan-label" id="bc-master-scan-label" style="font-size:13px">タップしてバーコードスキャン</div>
+          </div>
+          <input type="text" id="bc-master-scan-input" inputmode="none" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="position:fixed; top:-100px; left:0; width:10px; height:10px; opacity:0.01; z-index:1; caret-color:transparent;">
+
+          <div class="form-group">
+            <label>JISコード（バーコード番号）</label>
+            <input type="text" id="bc-master-jis" placeholder="バーコードスキャンまたは手入力">
+          </div>
+          <div class="form-group">
+            <label>品目名</label>
+            <input type="text" id="bc-master-name" placeholder="例：バスタオル（白）">
+          </div>
+          <div class="form-group">
+            <label>カテゴリ</label>
+            <select id="bc-master-category" style="width:100%; padding:10px; border:2px solid var(--border); border-radius:var(--radius-sm); font-size:14px; background:var(--bg)">
+              <option value="">-- 選択してください --</option>
+              <option value="タオル">タオル</option>
+              <option value="アメニティ">アメニティ</option>
+              <option value="リネン">リネン</option>
+              <option value="消耗品">消耗品</option>
+              <option value="その他">その他</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>単位</label>
+            <select id="bc-master-unit" style="width:100%; padding:10px; border:2px solid var(--border); border-radius:var(--radius-sm); font-size:14px; background:var(--bg)">
+              <option value="枚">枚</option>
+              <option value="個">個</option>
+              <option value="本">本</option>
+              <option value="セット">セット</option>
+              <option value="箱">箱</option>
+              <option value="袋">袋</option>
+            </select>
+          </div>
+          <div style="display:flex; gap:10px">
+            <button class="btn btn-primary" onclick="submitBcMasterItem()" style="flex:1">登録</button>
+            <button class="btn btn-outline" onclick="toggleBcMasterAddMode()" style="flex:1">閉じる</button>
+          </div>
+          <div id="bc-master-add-result" style="margin-top:10px; display:none"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 棚卸し中のスキャン表示 (RFIDモード用) -->
+  <div id="stocktake-scan-area" style="display:none">
+    <div class="card">
+      <h2 data-i18n="scan.rfidTitle">📡 RFID読み取り</h2>
+      <div class="scan-area" id="stocktake-scan-area-inner" style="border-color:var(--primary); background:var(--primary-light)">
+        <div class="scan-icon">📡</div>
+        <div class="scan-label" id="stocktake-scan-label" data-i18n="scan.scanning">スキャン中... RFIDトリガーを引いてください</div>
+        <div class="scan-count" id="stocktake-scan-count" style="display:block"><span data-i18n="scan.readCount">読取:</span> <span id="stocktake-tag-count-num">0</span> <span data-i18n="scan.items">件</span></div>
+      </div>
+
+      <div id="stocktake-scanned-tags" style="margin-top:12px">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+          <strong style="font-size:13px" data-i18n="scan.readStatus">読み取り状況</strong>
+          <button class="btn btn-sm btn-outline" onclick="clearStocktakeTags()" data-i18n="scan.clearAll">全クリア</button>
+        </div>
+        <div id="stocktake-tag-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 棚卸し結果表示 -->
+  <div id="stocktake-result" style="display:none"></div>
+</div>
+
+<!-- ===== 倉庫作業タブ ===== -->
+<div id="tab-warehouse" class="tab-content">
+  <div class="card">
+    <h2 data-i18n="warehouse.title">🏭 倉庫作業</h2>
+    <p style="font-size:13px; color:var(--text2); margin-bottom:12px" data-i18n="warehouse.desc">
+      倉庫内でのタオルメンテナンス作業を記録します。
+    </p>
+    <div class="form-group">
+      <label data-i18n="scan.operator">実行者</label>
+      <input type="text" id="warehouse-operator-input" data-i18n-placeholder="scan.operatorPlaceholder" placeholder="名前を入力" value="">
+    </div>
+    <button class="btn btn-primary" id="warehouse-stain-start-btn" onclick="startStainRemoval()" style="background:linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%); box-shadow:0 4px 14px rgba(139,92,246,.3)">
+      <span data-i18n="warehouse.stainRemoval">🧴 染み抜き作業開始</span>
+    </button>
+  </div>
+
+  <!-- 染み抜きスキャン中 -->
+  <div id="warehouse-scan-area" style="display:none">
+    <div class="card">
+      <h2 data-i18n="scan.rfidTitle">📡 RFID読み取り</h2>
+      <div class="scan-area" id="warehouse-scan-area-inner" style="border-color:#8B5CF6; background:#F5F3FF">
+        <div class="scan-icon">🧴</div>
+        <div class="scan-label" id="warehouse-scan-label" data-i18n="warehouse.scanLabel">染み抜き対象のタオルをスキャンしてください</div>
+        <div class="scan-count" style="display:block; color:#8B5CF6"><span data-i18n="scan.readCount">読取:</span> <span id="warehouse-tag-count-num">0</span> <span data-i18n="scan.items">件</span></div>
+      </div>
+      <div id="warehouse-scanned-tags" style="margin-top:12px">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+          <strong style="font-size:13px" data-i18n="scan.readStatus">読み取り状況</strong>
+          <button class="btn btn-sm btn-outline" onclick="clearWarehouseTags()" data-i18n="scan.clearAll">全クリア</button>
+        </div>
+        <div id="warehouse-tag-list"></div>
+      </div>
+    </div>
+    <div style="display:flex; gap:10px">
+      <button class="btn btn-success" id="warehouse-exec-btn" onclick="executeStainRemoval()" style="flex:2" data-i18n="warehouse.execStain">染み抜き記録（0件）</button>
+      <button class="btn btn-outline" id="warehouse-cancel-btn" onclick="cancelStainRemoval()" style="flex:1" data-i18n="stocktake.cancel">キャンセル</button>
+    </div>
+  </div>
+
+  <!-- 染み抜き結果 -->
+  <div id="warehouse-result"></div>
+</div>
+
+<!-- ===== 履歴タブ ===== -->
+<div id="tab-history" class="tab-content">
+  <div class="card">
+    <h2 data-i18n="history.title">スキャン履歴</h2>
+    <div id="hist-list"><div class="loading"><div class="spinner"></div></div></div>
+  </div>
+  <button class="btn btn-outline" onclick="loadHistory()" data-i18n="common.refresh">更新</button>
+</div>
+
+<!-- ===== 設定タブ ===== -->
+<div id="tab-settings" class="tab-content">
+  <div class="card">
+    <h2 data-i18n="settings.apiTitle">API設定</h2>
+    <div class="form-group">
+      <label data-i18n="settings.apiUrl">GAS Web App URL</label>
+      <input type="text" id="api-url" inputmode="url" placeholder="https://script.google.com/macros/s/.../exec">
+    </div>
+    <button class="btn btn-sm btn-primary" onclick="saveApiUrl()" data-i18n="settings.saveTest">保存して接続テスト</button>
+  </div>
+  <div class="card">
+    <h2>🔗 RFID Bridge API</h2>
+    <div id="bridge-settings-status" style="padding:10px; border-radius:var(--radius-sm); margin-bottom:12px; background:var(--bg); font-size:13px">
+      検出中...
+    </div>
+    <p style="font-size:12px; color:var(--text2); line-height:1.5; margin-bottom:8px">
+      Bridge Appが起動している場合、HTTP API経由で高速一括読取を行います。<br>
+      未検出時はDataWedge Keystroke方式にフォールバックします。
+    </p>
+    <button class="btn btn-sm btn-outline" onclick="checkBridgeConnection()">Bridge再検出</button>
+  </div>
+  <div class="card">
+    <h2 data-i18n="settings.dwGuideTitle">DataWedge設定ガイド</h2>
+    <p style="font-size:13px; color:var(--text2); line-height:1.6" data-i18n="settings.dwGuideDesc">
+      Zebraデバイスで以下のDataWedgeプロファイルを設定してください:
+    </p>
+    <ol id="dw-guide-list" style="font-size:13px; color:var(--text2); line-height:1.8; padding-left:20px; margin-top:8px">
+      <li data-i18n="settings.dwStep1">DataWedgeアプリを開く</li>
+      <li data-i18n="settings.dwStep2">新しいプロファイルを作成（名前: RFID在庫管理）</li>
+      <li data-i18n="settings.dwStep3">関連付けアプリ → ブラウザ（Chrome / Enterprise Browser）を選択</li>
+      <li data-i18n="settings.dwStep4">Input → RFID Input → 有効化</li>
+      <li data-i18n="settings.dwStep5">Output → Keystroke Output → 有効化</li>
+      <li data-i18n="settings.dwStep6">キーストローク間遅延 → 50ms</li>
+      <li data-i18n="settings.dwStep7">データ末尾アクション → Enter（改行）</li>
+    </ol>
+  </div>
+  <div class="card">
+    <h2 data-i18n="settings.systemTitle">システム管理</h2>
+    <button class="btn btn-sm btn-danger" onclick="initSystem()" data-i18n="settings.initSystem">システム初期化（テストデータ投入）</button>
+  </div>
+</div>
+
+<!-- トースト -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ==================== 設定 ====================
+var DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxMI-DphwNxwiz9RIqSD22kcofmuawuZS1M728sLb1ZwuJo2Tq1dFTpPcX4L2HGdBUj/exec';
+localStorage.removeItem('rfid_api_url'); // 古いキャッシュをクリア
+var API_URL = DEFAULT_API_URL;
+
+// スキャン用
+var scannedTags = [];
+var scannedTagSet = {};
+var unknownTags = [];
+var unknownTagSet = {};
+
+// 棚卸し用
+var stockTags = [];
+var stockTagSet = {};
+var stockUnknownTags = [];
+var stockUnknownTagSet = {};
+
+// 倉庫作業用（染み抜き）
+var warehouseTags = [];
+var warehouseTagSet = {};
+var warehouseUnknownTags = [];
+var warehouseUnknownTagSet = {};
+
+var isScanning = false;
+var currentMode = 'scan'; // 'scan', 'stocktake', or 'warehouse'
+var currentOp = 'shipment'; // デフォルトを出庫に変更
+var opNameMap = { arrival: '入荷', shipment: '出庫', return: '入庫' };
+var tagItemMap = {};
+
+// 既知のプレフィックスと対応する品目
+var KNOWN_PREFIXES = {
+  'E2806A96': '(テスト)',
+  'E2806915': '(EdisonBrain)',
+  '11630100': 'フェイスタオル',
+  '12630100': 'バスタオル',
+  '13630100': 'バスマット'
+};
+
+// ==================== Bridge API設定 ====================
+var BRIDGE_API_URL = 'http://localhost:18080';
+var bridgeAvailable = false;
+var bridgeScanning = false;
+
+var TAG_LENGTH = 24;
+var TAG_HEX_REGEX = /^[0-9A-F]+$/;
+
+// ==================== 多言語対応 (i18n) ====================
+var currentLang = localStorage.getItem('rfid_lang') || 'ja';
+var LANG = {
+  ja: {
+    'app.title': 'RFID タオル在庫管理システム',
+    'app.subtitle': 'Phase 2.2 — Bridge API高速読取 + DataWedge対応',
+    'status.checking': 'API接続確認中...',
+    'status.connected': 'API接続OK',
+    'status.disconnected': '未設定 — 設定タブでAPI URLを入力してください',
+    'tab.scan': 'スキャン',
+    'tab.inventory': '在庫一覧',
+    'tab.stocktake': '棚卸し',
+    'tab.history': '履歴',
+    'tab.settings': '設定',
+    'scan.selectOp': '操作種別を選択',
+    'op.shipment': '出庫',
+    'op.return': '入庫',
+    'op.arrival': '入荷',
+    'op.arrivalSection': '⚠ 入荷（低頻度操作）',
+    'scan.property': '搬入先物件',
+    'scan.selectProperty': '-- 物件を選択 --',
+    'scan.operator': '実行者',
+    'scan.operatorPlaceholder': '名前を入力',
+    'scan.rfidTitle': '📡 RFID読み取り',
+    'scan.tapToStart': 'タップしてスキャン開始',
+    'scan.scanning': 'スキャン中... RFIDトリガーを引いてください',
+    'scan.readCount': '読取:',
+    'scan.items': '件',
+    'scan.readStatus': '読み取り状況',
+    'scan.clearAll': '全クリア',
+    'scan.testManual': 'テスト用：手動入力 / タグ選択',
+    'scan.addManual': '手動タグ追加',
+    'scan.exec': 'スキャン実行',
+    'scan.processing': '処理中...',
+    'scan.arrivalWarning': '⚠ 入荷操作が選択されました',
+    'scan.noTags': 'タグがありません',
+    'scan.selectPropertyErr': '搬入先物件を選択してください',
+    'scan.unknownTitle': '⚠️ 不明タグ（在庫対象外）',
+    'scan.total': '合計',
+    'scan.unknownSuffix': '件',
+    'scan.unknownPrefix': '+ 不明',
+    'scan.testTagLabel': 'テストタグ（タップで追加）:',
+    'scan.added': '件追加',
+    'inv.clean': '全在庫',
+    'inv.all': '管理総数',
+    'inv.shipped': '出庫中',
+    'inv.byItem': '品目別在庫',
+    'inv.thItem': '品目',
+    'inv.thClean': '在庫',
+    'inv.thAll': '管理総数',
+    'inv.thShipped': '出庫中',
+    'inv.totalRow': '合計',
+    'common.refresh': '更新',
+    'common.error': 'エラー',
+    'common.commError': '通信エラー',
+    'stocktake.title': '📋 棚卸し',
+    'stocktake.desc': '物件を選択し、その場所にあるすべてのタオルをスキャンして在庫の正確性を確認します。',
+    'stocktake.selectProperty': '棚卸し対象',
+    'stocktake.allLocations': 'すべての場所',
+    'stocktake.mainWarehouse': 'メイン倉庫',
+    'stocktake.start': '棚卸し開始',
+    'stocktake.finish': '棚卸し完了',
+    'stocktake.cancel': 'キャンセル',
+    'stocktake.started': '棚卸しモード開始',
+    'stocktake.cancelled': '棚卸しキャンセル',
+    'stocktake.noTags': 'タグがスキャンされていません',
+    'stocktake.fetchError': '在庫データの取得に失敗',
+    'stocktake.expectedCount': 'システム登録数',
+    'stocktake.scannedCount': 'スキャン数',
+    'stocktake.matched': '✓ 在庫一致',
+    'stocktake.matchedDesc': 'スキャン済みで対象場所の在庫にあるタオル',
+    'stocktake.missing': '⚠️ スキャン漏れ',
+    'stocktake.missingDesc': '対象場所にあるはずなのにスキャンされなかったタオル',
+    'stocktake.extra': '❌ 未登録/別の場所',
+    'stocktake.extraDesc': 'スキャンしたが対象場所の在庫に無いタオル',
+    'bc.desc': 'バーコードをスキャンし、数量を選択して棚卸しを行います。',
+    'bc.property': '棚卸し物件',
+    'bc.operator': '実行者',
+    'bc.scanPrompt': 'タップしてバーコードスキャン開始',
+    'bc.selectQty': '数量を選択',
+    'bc.addToList': 'リストに追加',
+    'bc.list': '棚卸しリスト',
+    'bc.empty': 'まだ品目がありません',
+    'bc.itemCount': '品目数',
+    'bc.totalQty': '合計数量',
+    'bc.submit': '📤 棚卸し結果を送信',
+    'bc.notFound': '未登録のバーコードです',
+    'bc.added': '品目を追加しました',
+    'bc.submitted': '棚卸し結果を送信しました',
+    'bc.submitError': '送信に失敗しました',
+    'bc.noItems': '品目がありません',
+    'history.title': 'スキャン履歴',
+    'history.none': '履歴なし',
+    'settings.apiTitle': 'API設定',
+    'settings.apiUrl': 'GAS Web App URL',
+    'settings.saveTest': '保存して接続テスト',
+    'settings.saved': '保存しました',
+    'settings.dwGuideTitle': 'DataWedge設定ガイド',
+    'settings.dwGuideDesc': 'Zebraデバイスで以下のDataWedgeプロファイルを設定してください:',
+    'settings.dwStep1': 'DataWedgeアプリを開く',
+    'settings.dwStep2': '新しいプロファイルを作成（名前: RFID在庫管理）',
+    'settings.dwStep3': '関連付けアプリ → ブラウザ（Chrome / Enterprise Browser）を選択',
+    'settings.dwStep4': 'Input → RFID Input → 有効化',
+    'settings.dwStep5': 'Output → Keystroke Output → 有効化',
+    'settings.dwStep6': 'キーストローク間遅延 → 50ms',
+    'settings.dwStep7': 'データ末尾アクション → Enter（改行）',
+    'settings.systemTitle': 'システム管理',
+    'settings.initSystem': 'システム初期化（テストデータ投入）',
+    'settings.initConfirm': '全データをリセットしてテストデータを投入します。よろしいですか？',
+    'settings.initProgress': '初期化中...',
+    'settings.initDone': '初期化完了',
+    'settings.apiSetErr': 'API URLを設定してください',
+    'opName.arrival': '入荷',
+    'opName.shipment': '出庫',
+    'opName.return': '入庫',
+    'result.complete': '完了',
+    'tab.warehouse': '倉庫作業',
+    'warehouse.title': '🏭 倉庫作業',
+    'warehouse.desc': '倉庫内でのタオルメンテナンス作業を記録します。',
+    'warehouse.stainRemoval': '🧴 染み抜き作業開始',
+    'warehouse.scanLabel': '染み抜き対象のタオルをスキャンしてください',
+    'warehouse.execStain': '染み抜き記録（0件）',
+    'warehouse.started': '染み抜きモード開始',
+    'warehouse.cancelled': '染み抜きモードキャンセル',
+    'warehouse.stainComplete': '染み抜き記録完了',
+    'warehouse.tagDetail': 'タグ別詳細',
+    'warehouse.washCount': '洗濯回数',
+    'warehouse.stainCount': '染み抜き回数',
+    'warehouse.limitReached': '上限到達'
+  },
+  en: {
+    'app.title': 'RFID Towel Inventory System',
+    'app.subtitle': 'Phase 2.2 — Bridge API Fast Read + DataWedge',
+    'status.checking': 'Checking API...',
+    'status.connected': 'API Connected',
+    'status.disconnected': 'Not set — Enter API URL in Settings tab',
+    'tab.scan': 'Scan',
+    'tab.inventory': 'Inventory',
+    'tab.stocktake': 'Stocktake',
+    'tab.history': 'History',
+    'tab.settings': 'Settings',
+    'scan.selectOp': 'Select Operation',
+    'op.shipment': 'Ship Out',
+    'op.return': 'Receive',
+    'op.arrival': 'New Arrival',
+    'op.arrivalSection': '⚠ New Arrival (Infrequent)',
+    'scan.property': 'Destination Property',
+    'scan.selectProperty': '-- Select Property --',
+    'scan.operator': 'Operator',
+    'scan.operatorPlaceholder': 'Enter name',
+    'scan.rfidTitle': '📡 RFID Scanner',
+    'scan.tapToStart': 'Tap to Start Scanning',
+    'scan.scanning': 'Scanning... Pull the RFID trigger',
+    'scan.readCount': 'Read:',
+    'scan.items': 'items',
+    'scan.readStatus': 'Scan Status',
+    'scan.clearAll': 'Clear All',
+    'scan.testManual': 'Test: Manual Input / Tag Selection',
+    'scan.addManual': 'Add Manual Tags',
+    'scan.exec': 'Execute Scan',
+    'scan.processing': 'Processing...',
+    'scan.arrivalWarning': '⚠ New Arrival operation selected',
+    'scan.noTags': 'No tags scanned',
+    'scan.selectPropertyErr': 'Please select a destination property',
+    'scan.unknownTitle': '⚠️ Unknown Tags (Not Tracked)',
+    'scan.total': 'Total',
+    'scan.unknownSuffix': '',
+    'scan.unknownPrefix': '+ Unknown ',
+    'scan.testTagLabel': 'Test tags (tap to add):',
+    'scan.added': ' tags added',
+    'inv.clean': 'In Stock',
+    'inv.all': 'Total Managed',
+    'inv.shipped': 'Shipped Out',
+    'inv.byItem': 'Inventory by Item',
+    'inv.thItem': 'Item',
+    'inv.thClean': 'In Stock',
+    'inv.thAll': 'Total',
+    'inv.thShipped': 'Shipped',
+    'inv.totalRow': 'Total',
+    'common.refresh': 'Refresh',
+    'common.error': 'Error',
+    'common.commError': 'Connection Error',
+    'stocktake.title': '📋 Stocktake',
+    'stocktake.desc': 'Select a property and scan all towels to verify inventory accuracy.',
+    'stocktake.selectProperty': 'Stocktake target',
+    'stocktake.allLocations': 'All locations',
+    'stocktake.mainWarehouse': 'Main warehouse',
+    'stocktake.start': 'Start Stocktake',
+    'stocktake.finish': 'Finish Stocktake',
+    'stocktake.cancel': 'Cancel',
+    'stocktake.started': 'Stocktake mode started',
+    'stocktake.cancelled': 'Stocktake cancelled',
+    'stocktake.noTags': 'No tags scanned yet',
+    'stocktake.fetchError': 'Failed to retrieve inventory data',
+    'stocktake.expectedCount': 'Expected',
+    'stocktake.scannedCount': 'Scanned',
+    'stocktake.matched': '✓ Matched',
+    'stocktake.matchedDesc': 'Scanned towels found at this location',
+    'stocktake.missing': '⚠️ Missing',
+    'stocktake.missingDesc': 'Should be at this location but not scanned',
+    'stocktake.extra': '❌ Unregistered/Wrong location',
+    'stocktake.extraDesc': 'Scanned but not expected at this location',
+    'bc.desc': 'Scan barcodes and select quantities for stocktaking.',
+    'bc.property': 'Stocktake property',
+    'bc.operator': 'Operator',
+    'bc.scanPrompt': 'Tap to start barcode scan',
+    'bc.selectQty': 'Select quantity',
+    'bc.addToList': 'Add to list',
+    'bc.list': 'Stocktake list',
+    'bc.empty': 'No items yet',
+    'bc.itemCount': 'Items',
+    'bc.totalQty': 'Total quantity',
+    'bc.submit': '📤 Submit stocktake',
+    'bc.notFound': 'Unregistered barcode',
+    'bc.added': 'Item added',
+    'bc.submitted': 'Stocktake submitted',
+    'bc.submitError': 'Submission failed',
+    'bc.noItems': 'No items to submit',
+    'history.title': 'Scan History',
+    'history.none': 'No history',
+    'settings.apiTitle': 'API Settings',
+    'settings.apiUrl': 'GAS Web App URL',
+    'settings.saveTest': 'Save & Test Connection',
+    'settings.saved': 'Saved',
+    'settings.dwGuideTitle': 'DataWedge Setup Guide',
+    'settings.dwGuideDesc': 'Set up the following DataWedge profile on your Zebra device:',
+    'settings.dwStep1': 'Open the DataWedge app',
+    'settings.dwStep2': 'Create a new profile (Name: RFID Inventory)',
+    'settings.dwStep3': 'Associated app → Select Browser (Chrome / Enterprise Browser)',
+    'settings.dwStep4': 'Input → RFID Input → Enable',
+    'settings.dwStep5': 'Output → Keystroke Output → Enable',
+    'settings.dwStep6': 'Keystroke delay → 50ms',
+    'settings.dwStep7': 'End of data action → Enter (newline)',
+    'settings.systemTitle': 'System Management',
+    'settings.initSystem': 'Initialize System (Load Test Data)',
+    'settings.initConfirm': 'This will reset all data and load test data. Are you sure?',
+    'settings.initProgress': 'Initializing...',
+    'settings.initDone': 'Initialization complete',
+    'settings.apiSetErr': 'Please set API URL',
+    'opName.arrival': 'New Arrival',
+    'opName.shipment': 'Shipment',
+    'opName.return': 'Return',
+    'result.complete': 'Complete',
+    'tab.warehouse': 'Warehouse',
+    'warehouse.title': '🏭 Warehouse Tasks',
+    'warehouse.desc': 'Record towel maintenance tasks in the warehouse.',
+    'warehouse.stainRemoval': '🧴 Start Stain Removal',
+    'warehouse.scanLabel': 'Scan towels for stain removal',
+    'warehouse.execStain': 'Record Stain Removal (0)',
+    'warehouse.started': 'Stain removal mode started',
+    'warehouse.cancelled': 'Stain removal mode cancelled',
+    'warehouse.stainComplete': 'Stain removal recorded',
+    'warehouse.tagDetail': 'Tag Details',
+    'warehouse.washCount': 'Wash count',
+    'warehouse.stainCount': 'Stain removal count',
+    'warehouse.limitReached': 'Limit reached'
+  }
+};
+
+function t(key) {
+  return (LANG[currentLang] && LANG[currentLang][key]) || LANG['ja'][key] || key;
+}
+
+function applyLanguage() {
+  // 静的テキスト要素を更新
+  document.querySelectorAll('[data-i18n]').forEach(function(el) {
+    var key = el.getAttribute('data-i18n');
+    el.textContent = t(key);
+  });
+  // プレースホルダー
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el) {
+    var key = el.getAttribute('data-i18n-placeholder');
+    el.placeholder = t(key);
+  });
+  // ボタンテキスト更新
+  document.getElementById('lang-toggle').textContent = currentLang === 'ja' ? 'EN' : 'JP';
+  // opNameMap更新
+  opNameMap = { arrival: t('opName.arrival'), shipment: t('opName.shipment'), return: t('opName.return') };
+  // 動的表示更新
+  updateTagDisplay();
+}
+
+function toggleLanguage() {
+  currentLang = currentLang === 'ja' ? 'en' : 'ja';
+  localStorage.setItem('rfid_lang', currentLang);
+  applyLanguage();
+}
+
+// ==================== 初期化 ====================
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('api-url').value = API_URL;
+
+  // api-url入力欄でのEnterキーによるページ遷移を防止
+  document.getElementById('api-url').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' || e.keyCode === 13) {
+      e.preventDefault();
+      e.stopPropagation();
+      saveApiUrl(); // Enter押下時は保存＆テスト実行
+    }
+  });
+
+  // バーコードスキャン中の意図しないページ遷移を防止
+  window.addEventListener('beforeunload', function(e) {
+    if (bcFocusInterval) {
+      e.preventDefault();
+      e.returnValue = '';
+    }
+  });
+
+  if (API_URL) {
+    checkApiConnection();
+    loadProperties();
+    loadTestTags();
+  } else {
+    showApiStatus('ng', t('status.disconnected'));
+  }
+
+  // Bridge API自動検出
+  checkBridgeConnection();
+
+  // タブ切り替え
+  document.querySelectorAll('.tab-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+      document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      if (btn.dataset.tab === 'inventory') loadInventory();
+      if (btn.dataset.tab === 'history') loadHistory();
+    });
+  });
+
+  // ==================== DataWedge高速入力ハンドラ v2 ====================
+  // 最適化: 24文字固定長バッファリング + 高速バッチ処理
+  var scanInput = document.getElementById('scan-input');
+  var _pendingTags = [];
+  var _displayTimer = null;
+  var DISPLAY_DEBOUNCE_MS = 300; // 表示更新は300ms間隔でバッチ処理
+  var _autoFlushTimer = null;
+  var AUTO_FLUSH_MS = 50; // 50ms入力停止でバッファ確定（80ms→50msに短縮）
+  var _charBuffer = ''; // 文字単位のバッファ（1文字ずつ来る対策）
+  var _charTimer = null;
+  var CHAR_FLUSH_MS = 30; // 30ms無入力でバッファからタグを抽出
+
+  // バッファからタグを抽出（24文字固定長で高速分割）
+  function _extractTagsFromBuffer() {
+    if (!_charBuffer) return;
+    var buf = _charBuffer.toUpperCase();
+    _charBuffer = '';
+
+    // 24文字固定長で分割（連結入力対策）
+    if (buf.length >= TAG_LENGTH) {
+      while (buf.length >= TAG_LENGTH) {
+        var candidate = buf.substring(0, TAG_LENGTH);
+        if (TAG_HEX_REGEX.test(candidate)) {
+          _queueTag(candidate);
+          buf = buf.substring(TAG_LENGTH);
+        } else {
+          // HEX以外の文字が混じったら1文字進める
+          buf = buf.substring(1);
+        }
+      }
+      // 残りは次回に持ち越し
+      if (buf.length > 0 && TAG_HEX_REGEX.test(buf)) {
+        _charBuffer = buf;
+      }
+    } else if (TAG_HEX_REGEX.test(buf) && buf.length >= 16) {
+      // 16文字以上でプレフィックスマッチすればタグとして確定
+      _queueTag(buf);
+    } else {
+      // 短すぎる場合は持ち越し
+      _charBuffer = buf;
+    }
+  }
+
+  // タグを内部キューに追加（DOM更新はデバウンス）
+  function _queueTag(val) {
+    if (!val) return;
+    if (!isScanning && currentMode !== 'stocktake' && currentMode !== 'warehouse') return;
+    _pendingTags.push(val);
+    if (_displayTimer) clearTimeout(_displayTimer);
+    _displayTimer = setTimeout(_flushPendingTags, DISPLAY_DEBOUNCE_MS);
+  }
+
+  // バッチで溜まったタグを一括処理
+  function _flushPendingTags() {
+    if (_pendingTags.length === 0) return;
+    var batch = _pendingTags;
+    _pendingTags = [];
+    for (var i = 0; i < batch.length; i++) {
+      addTagSilent(batch[i]);
+    }
+    updateTagDisplay();
+    if (currentMode === 'stocktake') updateStocktakeTagDisplay();
+    if (currentMode === 'warehouse') updateWarehouseTagDisplay();
+  }
+
+  // Enter受信時: バッファを即座にフラッシュ
+  scanInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' || e.keyCode === 13) {
+      e.preventDefault();
+      if (_charTimer) clearTimeout(_charTimer);
+      if (_autoFlushTimer) clearTimeout(_autoFlushTimer);
+      // バッファに溜まった文字 + input値を結合
+      var inputVal = scanInput.value.trim();
+      if (inputVal) _charBuffer += inputVal;
+      scanInput.value = '';
+      _extractTagsFromBuffer();
+    }
+  });
+
+  // 文字入力監視: 1文字ずつ来る入力を高速バッファリング
+  scanInput.addEventListener('input', function() {
+    var val = scanInput.value;
+    if (!val) return;
+
+    // バッファに追記してinputをクリア（次の文字が来る前に処理）
+    _charBuffer += val;
+    scanInput.value = '';
+
+    // 24文字溜まったら即座に抽出（待たない）
+    if (_charBuffer.length >= TAG_LENGTH) {
+      if (_charTimer) clearTimeout(_charTimer);
+      _extractTagsFromBuffer();
+    } else {
+      // まだ足りない場合はタイマーで待つ
+      if (_charTimer) clearTimeout(_charTimer);
+      _charTimer = setTimeout(_extractTagsFromBuffer, CHAR_FLUSH_MS);
+    }
+
+    // フォールバック: 入力が完全に止まったら確定
+    if (_autoFlushTimer) clearTimeout(_autoFlushTimer);
+    _autoFlushTimer = setTimeout(function() {
+      if (_charBuffer.length >= 16) _extractTagsFromBuffer();
+    }, AUTO_FLUSH_MS);
+  });
+
+  // ==================== グローバルキーストロークバッファ v2 ====================
+  // DataWedge Keystroke出力がどの要素にフォーカスがあっても
+  // キャプチャできるよう、document全体でキー入力を監視
+  // v2: 24文字固定長バッファリングで高速抽出
+  var _globalKeyBuf = '';
+  var _globalKeyTimer = null;
+  var GLOBAL_KEY_TIMEOUT = 40; // 40ms入力停止でバッファ確定（100ms→40msに短縮）
+
+  document.addEventListener('keydown', function(e) {
+    var ae = document.activeElement;
+
+    // バーコード棚卸しモード中はapi-url等でのEnterによるナビゲーションを常にブロック
+    if (bcFocusInterval && (e.key === 'Enter' || e.keyCode === 13)) {
+      if (ae && ae.tagName === 'INPUT' && ae.id !== 'scan-input' && ae.id !== 'bc-scan-input'
+          && ae.id !== 'bc-qty-input' && ae.id !== 'bc-master-scan-input'
+          && ae.id !== 'bc-master-name' && ae.id !== 'bc-master-code' && ae.id !== 'bc-master-cat'
+          && ae.id !== 'stocktake-person') {
+        e.preventDefault();
+        e.stopPropagation();
+        var bcInput = document.getElementById('bc-scan-input');
+        if (bcInput) bcInput.focus({ preventScroll: true });
+        return;
+      }
+    }
+
+    // フォーム入力中は無視
+    if (ae && ae.tagName === 'TEXTAREA') return;
+    if (ae && ae.tagName === 'INPUT' && ae.id !== 'scan-input' && ae.id !== 'bc-scan-input') return;
+
+    // scan-inputまたはbc-scan-inputにフォーカスがある場合は既存ハンドラに任せる
+    if (ae && (ae.id === 'scan-input' || ae.id === 'bc-scan-input')) return;
+
+    // スキャン中・棚卸し中・倉庫作業中でなければ無視
+    if (!isScanning && currentMode !== 'stocktake' && currentMode !== 'warehouse') return;
+
+    if (e.key === 'Enter' || e.keyCode === 13) {
+      e.preventDefault();
+      if (_globalKeyTimer) clearTimeout(_globalKeyTimer);
+      var buf = _globalKeyBuf.trim().toUpperCase();
+      _globalKeyBuf = '';
+      if (buf) {
+        // 24文字固定長で分割して一括キュー
+        while (buf.length >= TAG_LENGTH) {
+          var tag = buf.substring(0, TAG_LENGTH);
+          if (TAG_HEX_REGEX.test(tag)) _queueTag(tag);
+          buf = buf.substring(TAG_LENGTH);
+        }
+        if (buf.length >= 16 && TAG_HEX_REGEX.test(buf)) _queueTag(buf);
+      }
+      return;
+    }
+
+    // 印字可能文字のみバッファに追加
+    if (e.key && e.key.length === 1) {
+      _globalKeyBuf += e.key;
+
+      // 24文字以上溜まったら即座に抽出（タイマー待ちなし）
+      if (_globalKeyBuf.length >= TAG_LENGTH) {
+        if (_globalKeyTimer) clearTimeout(_globalKeyTimer);
+        var buf = _globalKeyBuf.toUpperCase();
+        _globalKeyBuf = '';
+        while (buf.length >= TAG_LENGTH) {
+          var tag = buf.substring(0, TAG_LENGTH);
+          if (TAG_HEX_REGEX.test(tag)) _queueTag(tag);
+          buf = buf.substring(TAG_LENGTH);
+        }
+        // 残りは持ち越し
+        if (buf.length > 0) _globalKeyBuf = buf;
+      } else {
+        if (_globalKeyTimer) clearTimeout(_globalKeyTimer);
+        _globalKeyTimer = setTimeout(function() {
+          var val = _globalKeyBuf.trim().toUpperCase();
+          if (val && val.length >= 16 && TAG_HEX_REGEX.test(val)) {
+            _queueTag(val);
+          }
+          _globalKeyBuf = '';
+        }, GLOBAL_KEY_TIMEOUT);
+      }
+    }
+  });
+
+  // 実行者名をlocalStorageから復元
+  var savedOp = localStorage.getItem('rfid_operator');
+  if (savedOp) {
+    document.getElementById('operator-input').value = savedOp;
+    document.getElementById('warehouse-operator-input').value = savedOp;
+  }
+
+  // 言語設定を適用
+  applyLanguage();
+});
+
+// ==================== API通信 ====================
+function apiGet(action, params) {
+  var url = API_URL + '?action=' + action;
+  if (params) {
+    Object.keys(params).forEach(function(k) { url += '&' + k + '=' + encodeURIComponent(params[k]); });
+  }
+  return fetch(url).then(function(r) { return r.json(); });
+}
+
+function apiPost(body) {
+  return fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(body),
+  }).then(function(r) { return r.json(); });
+}
+
+function checkApiConnection() {
+  showApiStatus('loading', t('status.checking'));
+  apiGet('ping')
+    .then(function(r) {
+      if (r.success) showApiStatus('ok', t('status.connected'));
+      else showApiStatus('ng', t('common.error') + ': ' + r.error);
+    })
+    .catch(function(e) {
+      showApiStatus('ng', t('common.commError') + ': ' + e.message);
+    });
+}
+
+function showApiStatus(state, text) {
+  document.getElementById('status-dot').className = 'dot ' + state;
+  document.getElementById('status-text').textContent = text;
+}
+
+// ==================== 設定保存 ====================
+function saveApiUrl() {
+  var url = document.getElementById('api-url').value.trim();
+  if (!url) { toast('URL required', 'err'); return; }
+  API_URL = url;
+  localStorage.setItem('rfid_api_url', url);
+  checkApiConnection();
+  loadProperties();
+  loadTestTags();
+  toast(t('settings.saved'), 'ok');
+}
+
+// ==================== Bridge API ====================
+function checkBridgeConnection() {
+  showBridgeStatus('loading', 'Bridge検出中...');
+  var fetchOpts = { method: 'GET' };
+  try { fetchOpts.signal = AbortSignal.timeout(2000); } catch(e) { /* older browser fallback */ }
+  fetch(BRIDGE_API_URL + '/api/status', fetchOpts)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      bridgeAvailable = true;
+      showBridgeStatus('ok', 'Bridge API接続OK（高速モード）');
+      updateBridgeSettingsStatus(true, data);
+    })
+    .catch(function() {
+      bridgeAvailable = false;
+      showBridgeStatus('ng', 'Bridge未検出（DataWedge方式）');
+      updateBridgeSettingsStatus(false, null);
+    });
+}
+
+function showBridgeStatus(state, text) {
+  document.getElementById('bridge-dot').className = 'dot ' + state;
+  document.getElementById('bridge-text').textContent = text;
+}
+
+function updateBridgeSettingsStatus(available, data) {
+  var el = document.getElementById('bridge-settings-status');
+  if (!el) return;
+  if (available) {
+    el.style.background = 'var(--success-light)';
+    el.innerHTML = '<span style="color:var(--success); font-weight:700">✅ Bridge App接続中</span>';
+    if (data && data.connected !== undefined) {
+      el.innerHTML += '<br><span style="font-size:11px; color:var(--text2)">リーダー: ' + (data.connected ? '接続済み' : '未接続') + '</span>';
+    }
+  } else {
+    el.style.background = 'var(--warning-light)';
+    el.innerHTML = '<span style="color:var(--warning); font-weight:700">⚠ Bridge App未検出</span><br>' +
+      '<span style="font-size:11px; color:var(--text2)">DataWedge Keystroke方式で動作します</span>';
+  }
+}
+
+/**
+ * Bridge API経由でインベントリを実行
+ * POST /api/inventory → JSON配列で全タグを一括取得
+ */
+function bridgeInventoryScan(timeout) {
+  timeout = timeout || 15000;
+  bridgeScanning = true;
+  return fetch(BRIDGE_API_URL + '/api/inventory', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ timeout: timeout })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    bridgeScanning = false;
+    if (data.success && data.tags) {
+      return data.tags.map(function(t) {
+        return (t.epc || t.tagId || t.id || '').toUpperCase();
+      }).filter(function(epc) { return epc && epc.length >= 16; });
+    }
+    throw new Error(data.message || data.error || 'インベントリ失敗');
+  })
+  .catch(function(e) {
+    bridgeScanning = false;
+    throw e;
+  });
+}
+
+// ==================== 操作種別 ====================
+function selectOp(el) {
+  document.querySelectorAll('.op-btn').forEach(function(b) { b.classList.remove('selected'); });
+  el.classList.add('selected');
+  currentOp = el.dataset.op;
+  document.getElementById('property-group').style.display = currentOp === 'shipment' ? 'block' : 'none';
+
+  // 入荷が選ばれた際の通知
+  if (currentOp === 'arrival') {
+    toast(t('scan.arrivalWarning'), 'ok');
+  }
+}
+
+// ==================== RFIDスキャン（スキャンタブ用） ====================
+function toggleScan() {
+  if (isScanning || bridgeScanning) stopScan();
+  else startScan();
+}
+
+function startScan() {
+  if (bridgeAvailable) {
+    startBridgeScan();
+  } else {
+    startDataWedgeScan();
+  }
+}
+
+/** Bridge API モード: HTTP一括取得 */
+function startBridgeScan() {
+  isScanning = true;
+  var area = document.getElementById('scan-area');
+  area.classList.add('scanning');
+  document.getElementById('scan-icon').textContent = '⚡';
+  document.getElementById('scan-label').textContent = 'Bridge API読取中... (最大15秒)';
+  document.getElementById('scan-count').style.display = 'block';
+
+  bridgeInventoryScan(15000)
+    .then(function(epcs) {
+      var added = 0;
+      epcs.forEach(function(epc) {
+        addTagSilent(epc);
+        added++;
+      });
+      updateTagDisplay();
+      if (currentMode === 'stocktake') updateStocktakeTagDisplay();
+      if (currentMode === 'warehouse') updateWarehouseTagDisplay();
+      toast('Bridge: ' + epcs.length + '個検出, ' + scannedTags.length + '件登録', 'ok');
+      stopScan();
+    })
+    .catch(function(e) {
+      toast('Bridge APIエラー: ' + e.message, 'err');
+      stopScan();
+    });
+}
+
+/** DataWedge Keystroke モード: 従来方式 */
+function startDataWedgeScan() {
+  isScanning = true;
+  var area = document.getElementById('scan-area');
+  area.classList.add('scanning');
+  document.getElementById('scan-icon').textContent = '🔄';
+  document.getElementById('scan-label').textContent = t('scan.scanning');
+  document.getElementById('scan-count').style.display = 'block';
+
+  var input = document.getElementById('scan-input');
+  input.value = '';
+  // Android/Zebraブラウザ対応: readOnlyを一時的に解除してからフォーカス
+  input.readOnly = false;
+  input.disabled = false;
+  input.style.position = 'fixed';
+  input.style.top = '-50px';
+  input.style.opacity = '0.01';
+  setTimeout(function() { input.focus({ preventScroll: true }); }, 50);
+
+  window._scanFocusInterval = setInterval(function() {
+    if (isScanning && document.activeElement !== input) {
+      input.focus({ preventScroll: true });
+    }
+  }, 300);
+}
+
+function stopScan() {
+  isScanning = false;
+  bridgeScanning = false;
+  clearInterval(window._scanFocusInterval);
+  var area = document.getElementById('scan-area');
+  area.classList.remove('scanning');
+  document.getElementById('scan-icon').textContent = '📡';
+  document.getElementById('scan-label').textContent = bridgeAvailable
+    ? 'タップでBridge APIスキャン開始'
+    : t('scan.tapToStart');
+}
+
+// ==================== タグ追加 ====================
+function addTagSilent(tagId) {
+  tagId = tagId.trim().toUpperCase();
+  if (!tagId) return;
+  var splitTags = splitConcatenatedTags(tagId);
+  splitTags.forEach(function(tid) {
+    if (!TAG_HEX_REGEX.test(tid)) return;
+    if (tid.length < 16) return;
+
+    // 既知プレフィックスをチェック + tagItemMapに未登録ならプレフィックス名を設定
+    var isKnown = false;
+    Object.keys(KNOWN_PREFIXES).forEach(function(prefix) {
+      if (tid.startsWith(prefix)) {
+        isKnown = true;
+        if (!tagItemMap[tid]) {
+          tagItemMap[tid] = KNOWN_PREFIXES[prefix];
+        }
+      }
+    });
+
+    if (currentMode === 'scan') {
+      if (isKnown) {
+        if (scannedTagSet[tid]) return;
+        scannedTagSet[tid] = true;
+        scannedTags.push(tid);
+      } else {
+        if (unknownTagSet[tid]) return;
+        unknownTagSet[tid] = true;
+        unknownTags.push(tid);
+      }
+    } else if (currentMode === 'stocktake') {
+      if (isKnown) {
+        if (stockTagSet[tid]) return;
+        stockTagSet[tid] = true;
+        stockTags.push(tid);
+      } else {
+        if (stockUnknownTagSet[tid]) return;
+        stockUnknownTagSet[tid] = true;
+        stockUnknownTags.push(tid);
+      }
+    } else if (currentMode === 'warehouse') {
+      if (isKnown) {
+        if (warehouseTagSet[tid]) return;
+        warehouseTagSet[tid] = true;
+        warehouseTags.push(tid);
+      } else {
+        if (warehouseUnknownTagSet[tid]) return;
+        warehouseUnknownTagSet[tid] = true;
+        warehouseUnknownTags.push(tid);
+      }
+    }
+  });
+}
+
+function addTag(tagId) {
+  addTagSilent(tagId);
+  if (navigator.vibrate) navigator.vibrate(50);
+  updateTagDisplay();
+}
+
+// 複数プレフィックス対応の分割
+function splitConcatenatedTags(raw) {
+  if (!raw) return [];
+  raw = raw.toUpperCase();
+
+  // 方式1（高速）: 24文字固定長で分割
+  if (raw.length >= TAG_LENGTH && TAG_HEX_REGEX.test(raw)) {
+    var tags = [];
+    for (var i = 0; i + TAG_LENGTH <= raw.length; i += TAG_LENGTH) {
+      var chunk = raw.substring(i, i + TAG_LENGTH);
+      tags.push(chunk);
+    }
+    if (tags.length > 0) return tags;
+  }
+
+  // 方式2（フォールバック）: プレフィックスベース分割
+  var allPrefixes = Object.keys(KNOWN_PREFIXES);
+  for (var i = 0; i < allPrefixes.length; i++) {
+    var prefix = allPrefixes[i];
+    if (raw.indexOf(prefix) !== -1) {
+      var parts = [];
+      var remaining = raw;
+      while (remaining.length > 0) {
+        var nextIdx = remaining.indexOf(prefix, 1);
+        if (nextIdx > 0) {
+          parts.push(remaining.substring(0, nextIdx));
+          remaining = remaining.substring(nextIdx);
+        } else {
+          parts.push(remaining);
+          remaining = '';
+        }
+      }
+      return parts.filter(function(p) { return p.length >= 16; }).map(function(p) {
+        if (TAG_LENGTH && p.startsWith(prefix) && p.length > TAG_LENGTH) {
+          return p.substring(0, TAG_LENGTH);
+        }
+        return p;
+      });
+    }
+  }
+
+  return [raw];
+}
+
+function clearTags() {
+  scannedTags = [];
+  scannedTagSet = {};
+  unknownTags = [];
+  unknownTagSet = {};
+  updateTagDisplay();
+}
+
+function clearStocktakeTags() {
+  stockTags = [];
+  stockTagSet = {};
+  stockUnknownTags = [];
+  stockUnknownTagSet = {};
+  updateStocktakeTagDisplay();
+}
+
+// ==================== タグ表示更新（スキャン） ====================
+function updateTagDisplay() {
+  var knownCount = scannedTags.length;
+  var unknownCount = unknownTags.length;
+  var totalCount = knownCount + unknownCount;
+
+  document.getElementById('tag-count-num').textContent = totalCount;
+  document.getElementById('scan-count').style.display = totalCount > 0 ? 'block' : 'none';
+  document.getElementById('scanned-tags').style.display = totalCount > 0 ? 'block' : 'none';
+
+  var itemCounts = {};
+  scannedTags.forEach(function(tag) {
+    var itemName = tagItemMap[tag];
+    if (itemName) {
+      itemCounts[itemName] = (itemCounts[itemName] || 0) + 1;
+    }
+  });
+
+  var html = '';
+  if (knownCount > 0 || unknownCount > 0) {
+    html += '<div style="display:flex; flex-direction:column; gap:6px">';
+    Object.keys(itemCounts).forEach(function(name) {
+      html += '<div class="tag-item" style="justify-content:space-between">';
+      html += '<span style="font-weight:600">' + name + '</span>';
+      html += '<span class="count" style="font-size:18px; font-weight:700; color:var(--primary)">' + itemCounts[name] + '</span>';
+      html += '</div>';
+    });
+    html += '</div>';
+
+    if (unknownCount > 0) {
+      html += '<div class="unknown-tags-section">';
+      html += '<h3>' + t('scan.unknownTitle') + '</h3>';
+      html += '<div class="unknown-tags-list">';
+      unknownTags.forEach(function(tag) {
+        html += '<div class="unknown-tag-item">' + tag + '</div>';
+      });
+      html += '</div></div>';
+    }
+
+    html += '<div style="text-align:right; margin-top:8px; padding-top:8px; border-top:1px solid var(--border)">';
+    html += '<span style="font-size:12px; color:var(--text2)">' + t('scan.total') + '</span> ';
+    html += '<span style="font-size:22px; font-weight:700">' + knownCount + '</span>';
+    if (unknownCount > 0) {
+      html += ' <span style="font-size:12px; color:var(--warning)">' + t('scan.unknownPrefix') + unknownCount + t('scan.unknownSuffix') + '</span>';
+    }
+    html += '<span style="font-size:12px; color:var(--text2)"> ' + t('scan.items') + '</span>';
+    html += '</div>';
+  }
+  document.getElementById('tag-list').innerHTML = html;
+
+  var btn = document.getElementById('exec-btn');
+  btn.disabled = knownCount === 0;
+  var btnText = t('scan.exec') + '(' + knownCount + t('scan.items');
+  if (unknownCount > 0) btnText += ' ' + t('scan.unknownPrefix') + unknownCount + t('scan.unknownSuffix');
+  btnText += ')';
+  btn.textContent = btnText;
+}
+
+// ==================== タグ表示更新（棚卸し） ====================
+function updateStocktakeTagDisplay() {
+  var knownCount = stockTags.length;
+  var unknownCount = stockUnknownTags.length;
+  var totalCount = knownCount + unknownCount;
+
+  document.getElementById('stocktake-tag-count-num').textContent = totalCount;
+
+  var itemCounts = {};
+  stockTags.forEach(function(tag) {
+    var itemName = tagItemMap[tag];
+    if (itemName) {
+      itemCounts[itemName] = (itemCounts[itemName] || 0) + 1;
+    }
+  });
+
+  var html = '';
+  if (knownCount > 0 || unknownCount > 0) {
+    html += '<div style="display:flex; flex-direction:column; gap:6px">';
+    Object.keys(itemCounts).forEach(function(name) {
+      html += '<div class="tag-item" style="justify-content:space-between">';
+      html += '<span style="font-weight:600">' + name + '</span>';
+      html += '<span class="count" style="font-size:18px; font-weight:700; color:var(--primary)">' + itemCounts[name] + '</span>';
+      html += '</div>';
+    });
+    html += '</div>';
+
+    if (unknownCount > 0) {
+      html += '<div class="unknown-tags-section">';
+      html += '<h3>' + t('scan.unknownTitle') + '</h3>';
+      html += '<div class="unknown-tags-list">';
+      stockUnknownTags.forEach(function(tag) {
+        html += '<div class="unknown-tag-item">' + tag + '</div>';
+      });
+      html += '</div></div>';
+    }
+  }
+  document.getElementById('stocktake-tag-list').innerHTML = html;
+}
+
+// ==================== テスト用手動入力 ====================
+function addManualTags() {
+  var text = document.getElementById('manual-tags').value;
+  var lines = text.split('\n');
+  var added = 0;
+  lines.forEach(function(line) {
+    var tag = line.trim();
+    if (tag) {
+      if (currentMode === 'scan' && !scannedTagSet[tag]) {
+        scannedTags.push(tag);
+        scannedTagSet[tag] = true;
+        added++;
+      }
+    }
+  });
+  document.getElementById('manual-tags').value = '';
+  updateTagDisplay();
+  if (added) toast(added + t('scan.added'), 'ok');
+}
+
+function loadTestTags() {
+  if (!API_URL) return;
+  apiGet('tags').then(function(r) {
+    if (!r.success || !r.tags.length) return;
+    r.tags.forEach(function(t) {
+      tagItemMap[t.id] = t.itemName || t.itemCode || '不明';
+    });
+    var html = '<div style="font-size:12px; color:var(--text2); margin-bottom:6px">' + t('scan.testTagLabel') + '</div>';
+    html += '<div style="display:flex; flex-wrap:wrap; gap:4px">';
+    r.tags.forEach(function(t) {
+      html += '<button class="btn btn-sm btn-outline" style="font-size:11px;padding:4px 8px" onclick="addTag(\'' + t.id + '\')">' + (t.itemName || t.id) + '</button>';
+    });
+    html += '</div>';
+    document.getElementById('test-tag-grid').innerHTML = html;
+  }).catch(function() {});
+}
+
+// ==================== スキャン実行 ====================
+function doExecuteScan() {
+  if (scannedTags.length === 0) { toast(t('scan.noTags'), 'err'); return; }
+
+  var opType = opNameMap[currentOp];
+  var propertyId = '';
+  if (currentOp === 'shipment') {
+    propertyId = document.getElementById('property-select').value;
+    if (!propertyId) { toast(t('scan.selectPropertyErr'), 'err'); return; }
+  }
+
+  var operator = document.getElementById('operator-input').value.trim() || '共通アカウント';
+  localStorage.setItem('rfid_operator', operator);
+
+  var btn = document.getElementById('exec-btn');
+  btn.disabled = true;
+  btn.textContent = t('scan.processing');
+  stopScan();
+
+  apiPost({
+    action: 'scan',
+    operationType: opType,
+    tagIds: scannedTags,
+    propertyId: propertyId,
+    operator: operator,
+  })
+  .then(function(r) {
+    if (r.success) {
+      showScanResult(r);
+      toast(opType + ' ' + t('result.complete') + ': ' + r.totalScanned + t('scan.items'), 'ok');
+      scannedTags = [];
+      scannedTagSet = {};
+      unknownTags = [];
+      unknownTagSet = {};
+      updateTagDisplay();
+    } else {
+      toast(t('common.error') + ': ' + r.error, 'err');
+      btn.disabled = false;
+      btn.textContent = t('scan.exec') + '(' + scannedTags.length + t('scan.items') + ')';
+    }
+  })
+  .catch(function(e) {
+    toast(t('common.commError') + ': ' + e.message, 'err');
+    btn.disabled = false;
+    btn.textContent = t('scan.exec') + '(' + scannedTags.length + t('scan.items') + ')';
+  });
+}
+
+function showScanResult(r) {
+  var html = '<div class="result-box success">';
+  html += '<div style="font-weight:700; margin-bottom:8px">' + r.operationType + ' ' + t('result.complete') + '</div>';
+  var counts = r.itemCounts || {};
+  var total = 0;
+  Object.keys(counts).forEach(function(name) {
+    html += '<div class="result-item"><span>' + name + '</span><span class="count">' + counts[name] + '</span></div>';
+    total += counts[name];
+  });
+  html += '<div class="result-item" style="border-top:2px solid rgba(0,0,0,.1);margin-top:4px;padding-top:8px"><span><strong>合計</strong></span><span class="count">' + total + '</span></div>';
+  if (r.warnings && r.warnings.length) {
+    html += '<div style="margin-top:8px;font-size:12px;color:var(--warning)">⚠ ' + r.warnings.join(', ') + '</div>';
+  }
+  html += '</div>';
+  document.getElementById('scan-result').innerHTML = html;
+}
+
+// ==================== 棚卸し ====================
+function startStocktake() {
+  currentMode = 'stocktake';
+  stockTags = [];
+  stockTagSet = {};
+  stockUnknownTags = [];
+  stockUnknownTagSet = {};
+
+  document.getElementById('stocktake-start-btn').style.display = 'none';
+  document.getElementById('stocktake-finish-btn').style.display = 'block';
+  document.getElementById('stocktake-cancel-btn').style.display = 'block';
+  document.getElementById('stocktake-scan-area').style.display = 'block';
+  document.getElementById('stocktake-result').style.display = 'none';
+  document.getElementById('stocktake-property-select').disabled = true;
+
+  var sel = document.getElementById('stocktake-property-select');
+  var propName = sel.options[sel.selectedIndex].text;
+
+  // Bridge APIモードの場合: 一括読取を実行
+  if (bridgeAvailable) {
+    document.getElementById('stocktake-scan-label').textContent = 'Bridge API読取中... (' + propName + ')';
+    bridgeInventoryScan(15000)
+      .then(function(epcs) {
+        epcs.forEach(function(epc) { addTagSilent(epc); });
+        updateStocktakeTagDisplay();
+        document.getElementById('stocktake-scan-label').textContent = 'Bridge: ' + epcs.length + '個検出 (' + propName + ')';
+        toast('Bridge: ' + epcs.length + '個検出', 'ok');
+      })
+      .catch(function(e) {
+        toast('Bridge APIエラー: ' + e.message + ' — DataWedge方式に切替', 'err');
+        // フォールバック: DataWedge方式を開始
+        document.getElementById('stocktake-scan-label').textContent = t('scan.scanning') + ' (' + propName + ')';
+        _startStocktakeDataWedge();
+      });
+  } else {
+    document.getElementById('stocktake-scan-label').textContent = t('scan.scanning') + ' (' + propName + ')';
+    _startStocktakeDataWedge();
+  }
+  toast(t('stocktake.started') + ' - ' + propName, 'ok');
+}
+
+function _startStocktakeDataWedge() {
+  var input = document.getElementById('scan-input');
+  input.value = '';
+  input.focus({ preventScroll: true });
+  window._stocktakeFocusInterval = setInterval(function() {
+    if (currentMode === 'stocktake' && document.activeElement !== input) input.focus({ preventScroll: true });
+  }, 500);
+}
+
+function cancelStocktake() {
+  currentMode = 'scan';
+  clearInterval(window._stocktakeFocusInterval);
+  stockTags = [];
+  stockTagSet = {};
+  stockUnknownTags = [];
+  stockUnknownTagSet = {};
+
+  document.getElementById('stocktake-start-btn').style.display = 'block';
+  document.getElementById('stocktake-finish-btn').style.display = 'none';
+  document.getElementById('stocktake-cancel-btn').style.display = 'none';
+  document.getElementById('stocktake-scan-area').style.display = 'none';
+  document.getElementById('stocktake-result').style.display = 'none';
+  document.getElementById('stocktake-property-select').disabled = false;
+
+  toast(t('stocktake.cancelled'), 'ok');
+}
+
+function finishStocktake() {
+  clearInterval(window._stocktakeFocusInterval);
+  // 既知・未知両方を合算してチェック
+  var allScannedTags = stockTags.concat(stockUnknownTags);
+  if (allScannedTags.length === 0) {
+    toast(t('stocktake.noTags'), 'err');
+    return;
+  }
+
+  var btn = document.getElementById('stocktake-finish-btn');
+  btn.disabled = true;
+  btn.textContent = t('scan.processing');
+
+  // 選択された物件を取得
+  var selectedProperty = document.getElementById('stocktake-property-select').value;
+
+  // インベントリAPIからすべてのタグを取得
+  apiGet('inventory')
+    .then(function(r) {
+      if (!r.success) {
+        toast(t('stocktake.fetchError'), 'err');
+        btn.disabled = false;
+        btn.textContent = t('stocktake.finish');
+        return;
+      }
+
+      var tagLocationMap = r.tagLocationMap || {};
+
+      // 選択物件に該当するタグのみをシステム側対象にする
+      var systemTagSet = {};
+      r.allTags.forEach(function(tag) {
+        if (selectedProperty === '__all__') {
+          // 全体棚卸し：すべてのタグが対象
+          systemTagSet[tag] = true;
+        } else {
+          // 物件別棚卸し：所在が一致するタグのみ
+          var loc = tagLocationMap[tag] || '';
+          if (loc === selectedProperty) {
+            systemTagSet[tag] = true;
+          }
+        }
+      });
+
+      // 比較処理（既知+未知の全スキャンタグを使用）
+      var matchedTags = [];
+      var missingTags = [];
+      var extraTags = [];
+
+      // スキャン済みのセットを作成
+      var scannedSet = {};
+      allScannedTags.forEach(function(tag) {
+        scannedSet[tag] = true;
+      });
+
+      // スキャン済みで在庫にあるもの / ないもの
+      allScannedTags.forEach(function(tag) {
+        if (systemTagSet[tag]) {
+          matchedTags.push(tag);
+        } else {
+          extraTags.push(tag);
+        }
+      });
+
+      // スキャン漏れ（対象場所にあるはずなのにスキャンされていない）
+      Object.keys(systemTagSet).forEach(function(tag) {
+        if (!scannedSet[tag]) {
+          missingTags.push(tag);
+        }
+      });
+
+      var sel = document.getElementById('stocktake-property-select');
+      var propName = sel.options[sel.selectedIndex].text;
+      showStocktakeResult(matchedTags, missingTags, extraTags, propName, Object.keys(systemTagSet).length);
+      btn.disabled = false;
+      btn.textContent = t('stocktake.finish');
+    })
+    .catch(function(e) {
+      toast(t('common.commError') + ': ' + e.message, 'err');
+      btn.disabled = false;
+      btn.textContent = t('stocktake.finish');
+    });
+}
+
+function showStocktakeResult(matched, missing, extra, propName, expectedTotal) {
+  var html = '<div class="stocktake-results">';
+
+  // ヘッダー：対象物件と概要
+  html += '<div style="padding:12px 14px; background:var(--bg2); border-radius:var(--radius-sm); margin-bottom:10px">';
+  html += '<div style="font-size:13px; font-weight:700; margin-bottom:6px">📍 ' + (propName || t('stocktake.allLocations')) + '</div>';
+  html += '<div style="font-size:12px; color:var(--text2)">' + t('stocktake.expectedCount') + ': ' + expectedTotal + t('scan.items') + ' / ' + t('stocktake.scannedCount') + ': ' + (matched.length + extra.length) + t('scan.items') + '</div>';
+  html += '</div>';
+
+  html += '<div class="stocktake-result-section stocktake-result-matched">';
+  html += '<h3>' + t('stocktake.matched') + ' <span class="stocktake-result-count">' + matched.length + '</span> ' + t('scan.items') + '</h3>';
+  if (matched.length > 0) {
+    html += '<div style="font-size:12px; color:var(--success); margin-top:6px">' + t('stocktake.matchedDesc') + '</div>';
+  }
+  html += '</div>';
+
+  html += '<div class="stocktake-result-section stocktake-result-missing">';
+  html += '<h3>' + t('stocktake.missing') + ' <span class="stocktake-result-count">' + missing.length + '</span> ' + t('scan.items') + '</h3>';
+  if (missing.length > 0) {
+    html += '<div style="font-size:12px; color:var(--warning); margin-top:6px">' + t('stocktake.missingDesc') + '</div>';
+    html += '<div style="margin-top:8px; max-height:150px; overflow-y:auto">';
+    missing.forEach(function(tag) {
+      html += '<div style="font-size:12px; padding:4px 0; border-bottom:1px solid rgba(0,0,0,.1); font-family:monospace">' + tag + '</div>';
+    });
+    html += '</div>';
+  }
+  html += '</div>';
+
+  html += '<div class="stocktake-result-section stocktake-result-extra">';
+  html += '<h3>' + t('stocktake.extra') + ' <span class="stocktake-result-count">' + extra.length + '</span> ' + t('scan.items') + '</h3>';
+  if (extra.length > 0) {
+    html += '<div style="font-size:12px; color:var(--danger); margin-top:6px">' + t('stocktake.extraDesc') + '</div>';
+    html += '<div style="margin-top:8px; max-height:150px; overflow-y:auto">';
+    extra.forEach(function(tag) {
+      html += '<div style="font-size:12px; padding:4px 0; border-bottom:1px solid rgba(0,0,0,.1); font-family:monospace">' + tag + '</div>';
+    });
+    html += '</div>';
+  }
+  html += '</div>';
+
+  html += '</div>';
+
+  document.getElementById('stocktake-result').innerHTML = html;
+  document.getElementById('stocktake-result').style.display = 'block';
+
+  currentMode = 'scan';
+  document.getElementById('stocktake-start-btn').style.display = 'block';
+  document.getElementById('stocktake-finish-btn').style.display = 'none';
+  document.getElementById('stocktake-cancel-btn').style.display = 'none';
+  document.getElementById('stocktake-scan-area').style.display = 'none';
+  document.getElementById('stocktake-property-select').disabled = false;
+}
+
+// ==================== バーコード棚卸し ====================
+
+var bcMasterData = [];       // バーコードマスタ（{jisCode, itemName, category, unit}）
+var bcMasterMap = {};         // JISコード → マスタデータ
+var bcStocktakeList = [];     // 棚卸しリスト [{jisCode, itemName, category, unit, quantity}]
+var bcCurrentItem = null;     // 現在スキャンされた品目
+var bcSelectedQty = 0;        // 選択中の数量
+var bcFocusInterval = null;   // フォーカス維持用インターバル
+var bcBuffer = '';             // バーコード入力バッファ
+var bcBufferTimer = null;     // バッファタイマー
+
+function switchStocktakeMode(mode) {
+  document.getElementById('mode-rfid-btn').classList.toggle('active', mode === 'rfid');
+  document.getElementById('mode-barcode-btn').classList.toggle('active', mode === 'barcode');
+  document.getElementById('stocktake-rfid-mode').style.display = mode === 'rfid' ? 'block' : 'none';
+  document.getElementById('stocktake-barcode-mode').style.display = mode === 'barcode' ? 'block' : 'none';
+  // RFIDモードのスキャン関連UIも非表示に
+  if (mode === 'barcode') {
+    document.getElementById('stocktake-scan-area').style.display = 'none';
+    document.getElementById('stocktake-result').style.display = 'none';
+    loadBarcodeMaster();
+  }
+}
+
+function loadBarcodeMaster() {
+  apiGet('barcodes').then(function(data) {
+    if (data && data.success && data.items) {
+      bcMasterData = data.items;
+      bcMasterMap = {};
+      bcMasterData.forEach(function(item) {
+        bcMasterMap[item.jisCode] = item;
+      });
+    }
+  }).catch(function() {});
+  // バーコード用の物件セレクタも更新
+  populateBcPropertySelect();
+}
+
+function populateBcPropertySelect() {
+  var sel = document.getElementById('bc-property-select');
+  if (!sel) return;
+  // 既存のオプションをクリア（最初の2つは残す）
+  while (sel.options.length > 2) sel.remove(2);
+  // RFIDの物件セレクタからコピー
+  var rfidSel = document.getElementById('stocktake-property-select');
+  if (rfidSel) {
+    for (var i = 2; i < rfidSel.options.length; i++) {
+      var opt = document.createElement('option');
+      opt.value = rfidSel.options[i].value;
+      opt.text = rfidSel.options[i].text;
+      sel.add(opt);
+    }
+  }
+}
+
+function focusBarcodeInput() {
+  // マスタ追加モードが起動中なら閉じる
+  if (bcMasterAddMode) {
+    toggleBcMasterAddMode();
+  }
+  var input = document.getElementById('bc-scan-input');
+  input.value = '';
+  input.focus({ preventScroll: true });
+  document.getElementById('bc-scan-label').textContent = 'バーコードをスキャンしてください...';
+  document.getElementById('bc-scan-area').style.borderColor = 'var(--primary)';
+  document.getElementById('bc-scan-area').style.background = 'var(--primary-light)';
+
+  // フォーカス維持（ただし数量入力・実行者名・マスタ追加フォーム操作中は奪わない）
+  if (bcFocusInterval) clearInterval(bcFocusInterval);
+  bcFocusInterval = setInterval(function() {
+    var ae = document.activeElement;
+    if (ae === input) return; // 既にフォーカス済み
+    if (document.getElementById('stocktake-barcode-mode').style.display === 'none') return;
+    // ユーザーが他の入力欄を操作中ならフォーカスを奪わない
+    if (ae && ae.tagName === 'INPUT' && ae.id !== 'bc-scan-input') return;
+    if (ae && ae.tagName === 'SELECT') return;
+    if (ae && ae.tagName === 'TEXTAREA') return;
+    input.focus({ preventScroll: true });
+  }, 500);
+
+  // 入力イベント（マスタ追加モード中は無視）
+  input.onkeydown = function(e) {
+    if (bcMasterAddMode) return;
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      processBarcodeInput(input.value.trim());
+      input.value = '';
+      return;
+    }
+  };
+  // DataWedge経由の入力にも対応（文字が連続で入る場合）
+  input.oninput = function() {
+    if (bcMasterAddMode) return;
+    clearTimeout(bcBufferTimer);
+    bcBufferTimer = setTimeout(function() {
+      var val = input.value.trim();
+      if (val.length >= 4) {
+        processBarcodeInput(val);
+        input.value = '';
+      }
+    }, 150);
+  };
+}
+
+function processBarcodeInput(code) {
+  if (!code) return;
+  var item = bcMasterMap[code];
+  if (!item) {
+    toast(t('bc.notFound') + ': ' + code, 'warning');
+    document.getElementById('bc-scanned-item').style.display = 'none';
+    return;
+  }
+  // 品目情報を表示
+  bcCurrentItem = item;
+  bcSelectedQty = 0;
+  document.getElementById('bc-scanned-name').textContent = item.itemName;
+  document.getElementById('bc-scanned-cat').textContent = item.category + ' / ' + item.unit;
+  document.getElementById('bc-scanned-item').style.display = 'block';
+  document.getElementById('bc-add-btn').disabled = true;
+  // 数量入力欄をリセット
+  document.getElementById('bc-qty-input').value = '';
+  // スキャンエリアを成功表示
+  document.getElementById('bc-scan-area').style.borderColor = 'var(--success)';
+  document.getElementById('bc-scan-area').style.background = 'var(--success-light)';
+  document.getElementById('bc-scan-label').textContent = '✓ ' + item.itemName;
+}
+
+function onBcQtyInput() {
+  var raw = document.getElementById('bc-qty-input').value;
+  // 半角数字のみ許可（それ以外を除去）
+  var cleaned = raw.replace(/[^0-9]/g, '');
+  if (cleaned !== raw) document.getElementById('bc-qty-input').value = cleaned;
+  var qty = parseInt(cleaned, 10);
+  bcSelectedQty = (qty > 0) ? qty : 0;
+  document.getElementById('bc-add-btn').disabled = !(bcCurrentItem && bcSelectedQty > 0);
+}
+
+function addBcItem() {
+  // 入力値を再取得（念のため）
+  var qtyVal = parseInt(document.getElementById('bc-qty-input').value, 10);
+  if (qtyVal > 0) bcSelectedQty = qtyVal;
+  if (!bcCurrentItem || bcSelectedQty <= 0) return;
+  // 同じ品目がリストにあれば数量加算
+  var existing = bcStocktakeList.find(function(i) { return i.jisCode === bcCurrentItem.jisCode; });
+  if (existing) {
+    existing.quantity += bcSelectedQty;
+  } else {
+    bcStocktakeList.push({
+      jisCode: bcCurrentItem.jisCode,
+      itemName: bcCurrentItem.itemName,
+      category: bcCurrentItem.category,
+      unit: bcCurrentItem.unit,
+      quantity: bcSelectedQty
+    });
+  }
+  toast(bcCurrentItem.itemName + ' x' + bcSelectedQty + ' ' + t('bc.added'), 'ok');
+  bcCurrentItem = null;
+  bcSelectedQty = 0;
+  document.getElementById('bc-qty-input').value = '';
+  document.getElementById('bc-scanned-item').style.display = 'none';
+  // スキャンエリアをリセット
+  document.getElementById('bc-scan-area').style.borderColor = '';
+  document.getElementById('bc-scan-area').style.background = '';
+  document.getElementById('bc-scan-label').textContent = t('bc.scanPrompt');
+  updateBcListDisplay();
+  // 再度スキャン入力にフォーカス
+  var input = document.getElementById('bc-scan-input');
+  input.value = '';
+  input.focus({ preventScroll: true });
+}
+
+function updateBcListDisplay() {
+  var listEl = document.getElementById('bc-item-list');
+  var summaryEl = document.getElementById('bc-summary');
+  var submitBtn = document.getElementById('bc-submit-btn');
+
+  if (bcStocktakeList.length === 0) {
+    listEl.innerHTML = '<p style="font-size:12px; color:var(--text3); text-align:center; padding:16px 0">' + t('bc.empty') + '</p>';
+    summaryEl.style.display = 'none';
+    submitBtn.style.display = 'none';
+    return;
+  }
+
+  var html = '';
+  var totalQty = 0;
+  bcStocktakeList.forEach(function(item, idx) {
+    totalQty += item.quantity;
+    html += '<div class="bc-list-item">' +
+      '<div><div class="bc-list-name">' + item.itemName + '</div>' +
+      '<div class="bc-list-cat">' + item.category + '</div></div>' +
+      '<div style="display:flex; align-items:center">' +
+      '<span class="bc-list-qty">' + item.quantity + ' ' + item.unit + '</span>' +
+      '<button class="bc-list-remove" onclick="removeBcItem(' + idx + ')">✕</button>' +
+      '</div></div>';
+  });
+  listEl.innerHTML = html;
+  document.getElementById('bc-summary-items').textContent = bcStocktakeList.length;
+  document.getElementById('bc-summary-qty').textContent = totalQty;
+  summaryEl.style.display = 'block';
+  submitBtn.style.display = 'block';
+}
+
+function removeBcItem(idx) {
+  bcStocktakeList.splice(idx, 1);
+  updateBcListDisplay();
+}
+
+function clearBcList() {
+  bcStocktakeList = [];
+  bcCurrentItem = null;
+  bcSelectedQty = 0;
+  document.getElementById('bc-scanned-item').style.display = 'none';
+  updateBcListDisplay();
+}
+
+function submitBcStocktake() {
+  if (bcStocktakeList.length === 0) {
+    toast(t('bc.noItems'), 'warning');
+    return;
+  }
+  var propSel = document.getElementById('bc-property-select');
+  var propertyId = propSel.options[propSel.selectedIndex].text;
+  var operator = document.getElementById('bc-operator').value.trim();
+
+  var submitBtn = document.getElementById('bc-submit-btn');
+  submitBtn.disabled = true;
+  submitBtn.textContent = '送信中...';
+
+  apiPost({
+    action: 'barcodeStocktake',
+    propertyId: propertyId,
+    items: bcStocktakeList,
+    operator: operator
+  }).then(function(data) {
+    submitBtn.disabled = false;
+    submitBtn.textContent = t('bc.submit');
+    if (data && data.success) {
+      toast(t('bc.submitted') + ' (ID: ' + data.batchId + ')', 'ok');
+      clearBcList();
+    } else {
+      toast(t('bc.submitError') + ': ' + (data ? data.error : ''), 'error');
+    }
+  }).catch(function(err) {
+    submitBtn.disabled = false;
+    submitBtn.textContent = t('bc.submit');
+    toast(t('bc.submitError'), 'error');
+  });
+}
+
+// ==================== バーコードマスタ追加 ====================
+
+var bcMasterAddMode = false;
+var bcMasterScanDone = false; // 1回スキャンしたらtrue
+
+function toggleBcMasterAddMode() {
+  var form = document.getElementById('bc-master-add-form');
+  var btn = document.getElementById('bc-master-add-toggle');
+  if (form.style.display === 'none') {
+    // バーコード棚卸しスキャンのフォーカス維持を停止（排他制御）
+    if (bcFocusInterval) { clearInterval(bcFocusInterval); bcFocusInterval = null; }
+    // スキャンエリアを初期状態に戻す
+    document.getElementById('bc-scan-area').style.borderColor = '';
+    document.getElementById('bc-scan-area').style.background = '';
+    document.getElementById('bc-scan-label').textContent = t('bc.scanPrompt');
+    form.style.display = 'block';
+    btn.textContent = '✕ マスタ追加を閉じる';
+    bcMasterAddMode = true;
+    bcMasterScanDone = false;
+    resetBcMasterForm();
+    // バーコードスキャン入力を準備
+    startBcMasterScanListener();
+  } else {
+    form.style.display = 'none';
+    btn.textContent = '➕ マスタデータ追加';
+    bcMasterAddMode = false;
+    bcMasterScanDone = false;
+    stopBcMasterScanListener();
+  }
+}
+
+function resetBcMasterForm() {
+  document.getElementById('bc-master-jis').value = '';
+  document.getElementById('bc-master-name').value = '';
+  document.getElementById('bc-master-category').selectedIndex = 0;
+  document.getElementById('bc-master-unit').selectedIndex = 0;
+  document.getElementById('bc-master-add-result').style.display = 'none';
+  bcMasterScanDone = false;
+  var scanArea = document.getElementById('bc-master-scan-area');
+  scanArea.style.borderColor = '';
+  scanArea.style.background = '';
+  document.getElementById('bc-master-scan-icon').textContent = '📷';
+  document.getElementById('bc-master-scan-label').textContent = 'タップしてバーコードスキャン';
+}
+
+var _bcMasterScanInterval = null;
+
+function focusBcMasterScanInput() {
+  var input = document.getElementById('bc-master-scan-input');
+  input.value = '';
+  input.focus({ preventScroll: true });
+}
+
+function startBcMasterScanListener() {
+  var input = document.getElementById('bc-master-scan-input');
+  input.value = '';
+  input.readOnly = false;
+  input.disabled = false;
+
+  // keydownハンドラ
+  input._masterKeydown = function(e) {
+    if (!bcMasterAddMode) return;
+    if (bcMasterScanDone) return; // 1回限り
+
+    if (e.key === 'Enter' || e.keyCode === 13) {
+      e.preventDefault();
+      var val = input.value.trim();
+      input.value = '';
+      if (val) {
+        applyBcMasterScan(val);
+      }
+    }
+  };
+
+  // inputハンドラ（Enter無しの自動検出）
+  input._masterInput = function() {
+    if (!bcMasterAddMode || bcMasterScanDone) return;
+    if (input._masterFlush) clearTimeout(input._masterFlush);
+    input._masterFlush = setTimeout(function() {
+      var val = input.value.trim();
+      if (val && val.length >= 8) {
+        input.value = '';
+        applyBcMasterScan(val);
+      }
+    }, 120);
+  };
+
+  input.addEventListener('keydown', input._masterKeydown);
+  input.addEventListener('input', input._masterInput);
+
+  // 定期フォーカス
+  _bcMasterScanInterval = setInterval(function() {
+    if (bcMasterAddMode && !bcMasterScanDone) {
+      var ae = document.activeElement;
+      // JIS入力欄や他のフォーム要素にフォーカスがある場合はスキップ
+      if (ae && ae.tagName === 'INPUT' && ae.id !== 'bc-master-scan-input') return;
+      if (ae && ae.tagName === 'SELECT') return;
+      if (ae && ae.tagName === 'TEXTAREA') return;
+      input.focus({ preventScroll: true });
+    }
+  }, 500);
+}
+
+function stopBcMasterScanListener() {
+  var input = document.getElementById('bc-master-scan-input');
+  if (input._masterKeydown) input.removeEventListener('keydown', input._masterKeydown);
+  if (input._masterInput) input.removeEventListener('input', input._masterInput);
+  if (input._masterFlush) clearTimeout(input._masterFlush);
+  if (_bcMasterScanInterval) { clearInterval(_bcMasterScanInterval); _bcMasterScanInterval = null; }
+}
+
+function applyBcMasterScan(code) {
+  if (bcMasterScanDone) return;
+  bcMasterScanDone = true;
+
+  // JISコード欄に自動入力
+  document.getElementById('bc-master-jis').value = code;
+
+  // スキャンエリアを成功表示
+  var scanArea = document.getElementById('bc-master-scan-area');
+  scanArea.style.borderColor = 'var(--success)';
+  scanArea.style.background = 'var(--success-light)';
+  document.getElementById('bc-master-scan-icon').textContent = '✅';
+  document.getElementById('bc-master-scan-label').textContent = '読み取り完了: ' + code;
+
+  // マスタに既に存在するかチェック
+  if (bcMasterMap[code]) {
+    var existing = bcMasterMap[code];
+    toast('このJISコードは既に登録済みです: ' + existing.itemName, 'warning');
+    scanArea.style.borderColor = 'var(--warning)';
+    scanArea.style.background = 'var(--warning-light)';
+    document.getElementById('bc-master-scan-icon').textContent = '⚠️';
+  } else {
+    toast('JISコード読み取り完了: ' + code, 'ok');
+  }
+
+  // 品目名フィールドにフォーカス
+  setTimeout(function() {
+    document.getElementById('bc-master-name').focus();
+  }, 100);
+}
+
+function submitBcMasterItem() {
+  var jisCode = document.getElementById('bc-master-jis').value.trim();
+  var itemName = document.getElementById('bc-master-name').value.trim();
+  var category = document.getElementById('bc-master-category').value;
+  var unit = document.getElementById('bc-master-unit').value;
+
+  if (!jisCode) { toast('JISコードを入力してください', 'warning'); return; }
+  if (!itemName) { toast('品目名を入力してください', 'warning'); return; }
+  if (!category) { toast('カテゴリを選択してください', 'warning'); return; }
+
+  var resultEl = document.getElementById('bc-master-add-result');
+  resultEl.innerHTML = '<p style="color:var(--text2); font-size:12px">登録中...</p>';
+  resultEl.style.display = 'block';
+
+  apiPost({
+    action: 'addBarcodeMaster',
+    jisCode: jisCode,
+    itemName: itemName,
+    category: category,
+    unit: unit
+  }).then(function(data) {
+    if (data && data.success) {
+      resultEl.innerHTML = '<p style="color:var(--success); font-size:13px; font-weight:700">✓ ' + data.message + '</p>';
+      toast(data.message, 'ok');
+      // ローカルのマスタデータも更新
+      var newItem = data.item || { jisCode: jisCode, itemName: itemName, category: category, unit: unit };
+      bcMasterData.push(newItem);
+      bcMasterMap[newItem.jisCode] = newItem;
+      // フォームをリセットして次の入力を受け付け
+      setTimeout(function() {
+        resetBcMasterForm();
+      }, 1500);
+    } else {
+      var errMsg = data ? data.error : '不明なエラー';
+      resultEl.innerHTML = '<p style="color:var(--danger); font-size:13px; font-weight:700">✕ ' + errMsg + '</p>';
+      toast(errMsg, 'error');
+    }
+  }).catch(function(err) {
+    resultEl.innerHTML = '<p style="color:var(--danger); font-size:13px">通信エラー: ' + err.message + '</p>';
+    toast('通信エラー', 'error');
+  });
+}
+
+// ==================== 倉庫作業（染み抜き） ====================
+
+// 上限設定
+var WASH_COUNT_LIMIT = 100;
+var STAIN_COUNT_LIMIT = 5;
+
+function startStainRemoval() {
+  currentMode = 'warehouse';
+  warehouseTags = []; warehouseTagSet = {};
+  warehouseUnknownTags = []; warehouseUnknownTagSet = {};
+
+  document.getElementById('warehouse-stain-start-btn').style.display = 'none';
+  document.getElementById('warehouse-scan-area').style.display = 'block';
+  document.getElementById('warehouse-result').innerHTML = '';
+
+  // 実行者名を共有
+  var mainOp = document.getElementById('operator-input').value.trim();
+  if (mainOp) document.getElementById('warehouse-operator-input').value = mainOp;
+
+  // Bridge APIモードの場合: 一括読取を実行
+  if (bridgeAvailable) {
+    bridgeInventoryScan(15000)
+      .then(function(epcs) {
+        epcs.forEach(function(epc) { addTagSilent(epc); });
+        updateWarehouseTagDisplay();
+        toast('Bridge: ' + epcs.length + '個検出', 'ok');
+      })
+      .catch(function(e) {
+        toast('Bridge APIエラー: ' + e.message + ' — DataWedge方式に切替', 'err');
+        _startWarehouseDataWedge();
+      });
+  } else {
+    _startWarehouseDataWedge();
+  }
+  toast(t('warehouse.started'), 'ok');
+}
+
+function _startWarehouseDataWedge() {
+  var input = document.getElementById('scan-input');
+  input.value = '';
+  input.focus({ preventScroll: true });
+  window._warehouseFocusInterval = setInterval(function() {
+    if (currentMode === 'warehouse' && document.activeElement !== input) input.focus({ preventScroll: true });
+  }, 500);
+}
+
+function cancelStainRemoval() {
+  currentMode = 'scan';
+  clearInterval(window._warehouseFocusInterval);
+  warehouseTags = []; warehouseTagSet = {};
+  warehouseUnknownTags = []; warehouseUnknownTagSet = {};
+
+  document.getElementById('warehouse-stain-start-btn').style.display = 'block';
+  document.getElementById('warehouse-scan-area').style.display = 'none';
+  toast(t('warehouse.cancelled'), 'ok');
+}
+
+function clearWarehouseTags() {
+  warehouseTags = []; warehouseTagSet = {};
+  warehouseUnknownTags = []; warehouseUnknownTagSet = {};
+  updateWarehouseTagDisplay();
+}
+
+function updateWarehouseTagDisplay() {
+  var knownCount = warehouseTags.length;
+  var unknownCount = warehouseUnknownTags.length;
+  var totalCount = knownCount + unknownCount;
+
+  document.getElementById('warehouse-tag-count-num').textContent = totalCount;
+
+  var itemCounts = {};
+  warehouseTags.forEach(function(tag) {
+    var itemName = tagItemMap[tag];
+    if (itemName) {
+      itemCounts[itemName] = (itemCounts[itemName] || 0) + 1;
+    }
+  });
+
+  var html = '';
+  if (knownCount > 0 || unknownCount > 0) {
+    html += '<div style="display:flex; flex-direction:column; gap:6px">';
+    Object.keys(itemCounts).forEach(function(name) {
+      html += '<div class="tag-item" style="justify-content:space-between">';
+      html += '<span style="font-weight:600">' + name + '</span>';
+      html += '<span class="count" style="font-size:18px; font-weight:700; color:#8B5CF6">' + itemCounts[name] + '</span>';
+      html += '</div>';
+    });
+    html += '</div>';
+
+    if (unknownCount > 0) {
+      html += '<div class="unknown-tags-section">';
+      html += '<h3>' + t('scan.unknownTitle') + '</h3>';
+      html += '<div class="unknown-tags-list">';
+      warehouseUnknownTags.forEach(function(tag) {
+        html += '<div class="unknown-tag-item">' + tag + '</div>';
+      });
+      html += '</div></div>';
+    }
+  }
+  document.getElementById('warehouse-tag-list').innerHTML = html;
+
+  var btn = document.getElementById('warehouse-exec-btn');
+  btn.disabled = knownCount === 0;
+  btn.textContent = t('warehouse.execStain').replace('0', String(knownCount));
+}
+
+function executeStainRemoval() {
+  var allTags = warehouseTags.concat(warehouseUnknownTags);
+  if (allTags.length === 0) { toast(t('scan.noTags'), 'err'); return; }
+
+  var operator = document.getElementById('warehouse-operator-input').value.trim() || '共通アカウント';
+  localStorage.setItem('rfid_operator', operator);
+
+  var btn = document.getElementById('warehouse-exec-btn');
+  btn.disabled = true;
+  btn.textContent = t('scan.processing');
+  clearInterval(window._warehouseFocusInterval);
+
+  apiPost({
+    action: 'stainRemoval',
+    tagIds: warehouseTags, // 既知タグのみ送信
+    operator: operator,
+  })
+  .then(function(r) {
+    if (r.success) {
+      showStainRemovalResult(r);
+      toast(t('warehouse.stainComplete') + ': ' + r.totalProcessed + t('scan.items'), 'ok');
+      warehouseTags = []; warehouseTagSet = {};
+      warehouseUnknownTags = []; warehouseUnknownTagSet = {};
+      updateWarehouseTagDisplay();
+    } else {
+      toast(t('common.error') + ': ' + r.error, 'err');
+    }
+    btn.disabled = false;
+    btn.textContent = t('warehouse.execStain').replace('0', '0');
+  })
+  .catch(function(e) {
+    toast(t('common.commError') + ': ' + e.message, 'err');
+    btn.disabled = false;
+    btn.textContent = t('warehouse.execStain').replace('0', '0');
+  });
+}
+
+function showStainRemovalResult(r) {
+  var html = '<div class="card" style="margin-top:14px">';
+  html += '<div style="font-weight:700; margin-bottom:12px; color:#8B5CF6">🧴 ' + t('warehouse.stainComplete') + '</div>';
+
+  // 品目別集計
+  var counts = r.itemCounts || {};
+  var total = 0;
+  Object.keys(counts).forEach(function(name) {
+    html += '<div class="result-item"><span>' + name + '</span><span class="count" style="color:#8B5CF6">' + counts[name] + '</span></div>';
+    total += counts[name];
+  });
+  html += '<div class="result-item" style="border-top:2px solid rgba(0,0,0,.1);margin-top:4px;padding-top:8px"><span><strong>' + t('scan.total') + '</strong></span><span class="count" style="color:#8B5CF6">' + total + '</span></div>';
+
+  // タグ別詳細（上限警告含む）
+  if (r.tagDetails && r.tagDetails.length > 0) {
+    html += '<div style="margin-top:14px; border-top:1px solid var(--border); padding-top:12px">';
+    html += '<div style="font-size:13px; font-weight:700; margin-bottom:8px">' + t('warehouse.tagDetail') + '</div>';
+    r.tagDetails.forEach(function(td) {
+      var washWarning = td.washCount >= WASH_COUNT_LIMIT;
+      var stainWarning = td.stainCount >= STAIN_COUNT_LIMIT;
+      html += '<div style="padding:8px 10px; margin-bottom:6px; border-radius:10px; background:' + (washWarning || stainWarning ? 'var(--danger-light)' : 'var(--bg)') + '; border-left:3px solid ' + (washWarning || stainWarning ? 'var(--danger)' : '#8B5CF6') + '">';
+      html += '<div style="font-size:12px; font-family:monospace; font-weight:600">' + td.tagId.substring(td.tagId.length - 8) + ' <span style="font-family:sans-serif; color:var(--text2)">(' + td.itemName + ')</span></div>';
+      html += '<div style="font-size:11px; color:var(--text2); margin-top:4px">';
+      html += t('warehouse.washCount') + ': <strong>' + td.washCount + '</strong>';
+      if (washWarning) html += ' <span style="color:var(--danger)">⚠ ' + t('warehouse.limitReached') + '</span>';
+      html += ' / ' + t('warehouse.stainCount') + ': <strong>' + td.stainCount + '</strong>';
+      if (stainWarning) html += ' <span style="color:var(--danger)">⚠ ' + t('warehouse.limitReached') + '</span>';
+      html += '</div></div>';
+    });
+    html += '</div>';
+  }
+
+  if (r.warnings && r.warnings.length) {
+    html += '<div style="margin-top:8px;font-size:12px;color:var(--warning)">⚠ ' + r.warnings.join(', ') + '</div>';
+  }
+
+  html += '</div>';
+
+  document.getElementById('warehouse-result').innerHTML = html;
+  currentMode = 'scan';
+  document.getElementById('warehouse-stain-start-btn').style.display = 'block';
+  document.getElementById('warehouse-scan-area').style.display = 'none';
+}
+
+// ==================== 物件マスタ ====================
+function loadProperties() {
+  if (!API_URL) return;
+  apiGet('properties').then(function(r) {
+    if (!r.success) return;
+    // スキャンタブの物件セレクト
+    var sel = document.getElementById('property-select');
+    sel.innerHTML = '<option value="" data-i18n="scan.selectProperty">' + t('scan.selectProperty') + '</option>';
+    r.properties.forEach(function(p) {
+      sel.innerHTML += '<option value="' + p.id + '">' + p.name + '</option>';
+    });
+    // 棚卸しタブの物件セレクト
+    var stSel = document.getElementById('stocktake-property-select');
+    if (stSel) {
+      stSel.innerHTML = '<option value="__all__">' + t('stocktake.allLocations') + '</option>';
+      stSel.innerHTML += '<option value="メイン倉庫">' + t('stocktake.mainWarehouse') + '</option>';
+      r.properties.forEach(function(p) {
+        stSel.innerHTML += '<option value="' + p.id + '">' + p.name + '</option>';
+      });
+    }
+    // バーコード棚卸しの物件セレクタも更新
+    populateBcPropertySelect();
+  }).catch(function() {});
+}
+
+// ==================== 在庫一覧 ====================
+function loadInventory() {
+  if (!API_URL) { toast(t('settings.apiSetErr'), 'err'); return; }
+  document.getElementById('inv-table-wrap').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  apiGet('inventory')
+    .then(function(r) {
+      if (!r.success) { document.getElementById('inv-table-wrap').innerHTML = '<p>' + t('common.error') + ': ' + r.error + '</p>'; return; }
+      document.getElementById('inv-clean').textContent = r.total.clean;
+      document.getElementById('inv-all').textContent = r.total.all;
+      document.getElementById('inv-shipped').textContent = r.total.shipped;
+
+      var html = '<table class="inv-table"><tr><th>' + t('inv.thItem') + '</th><th style="text-align:right">' + t('inv.thClean') + '</th><th style="text-align:right">' + t('inv.thAll') + '</th><th style="text-align:right">' + t('inv.thShipped') + '</th></tr>';
+      r.summary.forEach(function(s) {
+        html += '<tr><td>' + s.name + '</td><td class="num">' + s.clean + '</td><td class="num">' + s.all + '</td><td class="num">' + s.shipped + '</td></tr>';
+      });
+      html += '<tr class="total-row"><td>' + t('inv.totalRow') + '</td><td class="num">' + r.total.clean + '</td><td class="num">' + r.total.all + '</td><td class="num">' + r.total.shipped + '</td></tr>';
+      html += '</table>';
+      document.getElementById('inv-table-wrap').innerHTML = html;
+    })
+    .catch(function(e) { document.getElementById('inv-table-wrap').innerHTML = '<p>' + t('common.commError') + ': ' + e.message + '</p>'; });
+}
+
+// ==================== 履歴 ====================
+function loadHistory() {
+  if (!API_URL) { toast(t('settings.apiSetErr'), 'err'); return; }
+  document.getElementById('hist-list').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  apiGet('history', { limit: 50 })
+    .then(function(r) {
+      if (!r.success) { document.getElementById('hist-list').innerHTML = '<p>' + t('common.error') + '</p>'; return; }
+      if (r.history.length === 0) { document.getElementById('hist-list').innerHTML = '<p style="color:var(--text2)">' + t('history.none') + '</p>'; return; }
+      var html = '';
+      var opClass = { '入荷': 'op-arrival', '出庫': 'op-shipment', '入庫': 'op-return' };
+      r.history.forEach(function(h) {
+        html += '<div class="hist-item">';
+        html += '<span class="hist-op ' + (opClass[h.operation] || '') + '">' + h.operation + '</span> ';
+        html += '<strong>' + h.tagId + '</strong> (' + h.itemName + ')';
+        if (h.destination) html += ' → ' + h.destination;
+        html += '<div class="hist-meta">' + h.datetime + ' / ' + h.operator;
+        if (h.warning) html += ' ⚠ ' + h.errorType;
+        html += '</div></div>';
+      });
+      document.getElementById('hist-list').innerHTML = html;
+    })
+    .catch(function(e) { document.getElementById('hist-list').innerHTML = '<p>' + t('common.commError') + ': ' + e.message + '</p>'; });
+}
+
+// ==================== システム初期化 ====================
+function initSystem() {
+  if (!confirm(t('settings.initConfirm'))) return;
+  toast(t('settings.initProgress'), 'ok');
+  apiPost({ action: 'init' })
+    .then(function(r) {
+      if (r.success) { toast(t('settings.initDone'), 'ok'); loadProperties(); loadTestTags(); }
+      else toast(t('common.error') + ': ' + r.error, 'err');
+    })
+    .catch(function(e) { toast(t('common.commError') + ': ' + e.message, 'err'); });
+}
+
+// ==================== トースト ====================
+function toast(msg, type) {
+  var el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show ' + (type || 'ok');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(function() { el.className = 'toast'; }, 3000);
+}
+</script>
+</body>
+</html>
