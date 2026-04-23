@@ -1270,6 +1270,8 @@ function selectOp(el) {
   if (currentOp === 'arrival') {
     toast(t('scan.arrivalWarning'), 'ok');
   }
+  // 操作種別変更時にボタン表示を更新（入荷モードは不明タグも含むため）
+  updateTagDisplay();
 }
 
 // ==================== RFIDスキャン（スキャンタブ用） ====================
@@ -1523,9 +1525,12 @@ function updateTagDisplay() {
   document.getElementById('tag-list').innerHTML = html;
 
   var btn = document.getElementById('exec-btn');
-  btn.disabled = knownCount === 0;
-  var btnText = t('scan.exec') + '(' + knownCount + t('scan.items');
-  if (unknownCount > 0) btnText += ' ' + t('scan.unknownPrefix') + unknownCount + t('scan.unknownSuffix');
+  // 入荷モードでは不明タグも含めてボタン有効化
+  var isArrival = currentOp === 'arrival';
+  var actionableCount = isArrival ? (knownCount + unknownCount) : knownCount;
+  btn.disabled = actionableCount === 0;
+  var btnText = t('scan.exec') + '(' + actionableCount + t('scan.items');
+  if (!isArrival && unknownCount > 0) btnText += ' ' + t('scan.unknownPrefix') + unknownCount + t('scan.unknownSuffix');
   btnText += ')';
   btn.textContent = btnText;
 }
@@ -1609,7 +1614,11 @@ function loadTestTags() {
 
 // ==================== スキャン実行 ====================
 function doExecuteScan() {
-  if (scannedTags.length === 0) { toast(t('scan.noTags'), 'err'); return; }
+  // 入荷モードでは不明タグも含める（新規登録のため）
+  var isArrival = currentOp === 'arrival';
+  var allTags = isArrival ? scannedTags.concat(unknownTags) : scannedTags;
+
+  if (allTags.length === 0) { toast(t('scan.noTags'), 'err'); return; }
 
   var opType = opNameMap[currentOp];
   var propertyId = '';
@@ -1629,7 +1638,7 @@ function doExecuteScan() {
   apiPost({
     action: 'scan',
     operationType: opType,
-    tagIds: scannedTags,
+    tagIds: allTags,
     propertyId: propertyId,
     operator: operator,
   })
