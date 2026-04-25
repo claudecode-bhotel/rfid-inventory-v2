@@ -1360,19 +1360,26 @@ function addTagSilent(tagId) {
   if (!tagId) return;
   var splitTags = splitConcatenatedTags(tagId);
   splitTags.forEach(function(tid) {
-    if (!TAG_HEX_REGEX.test(tid)) return;
-    if (tid.length < 16) return;
+    // HEX形式: プレフィックスチェック、非HEX形式（BT-0001等）: レガシータグとして受入
+    var isHex = TAG_HEX_REGEX.test(tid);
+    if (isHex && tid.length < 16) return;
+    if (!isHex && tid.length < 2) return;
 
     // 既知プレフィックスをチェック + tagItemMapに未登録ならプレフィックス名を設定
     var isKnown = false;
-    Object.keys(KNOWN_PREFIXES).forEach(function(prefix) {
-      if (tid.startsWith(prefix)) {
-        isKnown = true;
-        if (!tagItemMap[tid]) {
-          tagItemMap[tid] = KNOWN_PREFIXES[prefix];
+    if (isHex) {
+      Object.keys(KNOWN_PREFIXES).forEach(function(prefix) {
+        if (tid.startsWith(prefix)) {
+          isKnown = true;
+          if (!tagItemMap[tid]) {
+            tagItemMap[tid] = KNOWN_PREFIXES[prefix];
+          }
         }
-      }
-    });
+      });
+    } else {
+      // 非HEX形式はtagItemMapに存在すれば既知扱い
+      isKnown = !!tagItemMap[tid];
+    }
 
     if (currentMode === 'scan') {
       if (isKnown) {
@@ -1418,6 +1425,9 @@ function addTag(tagId) {
 function splitConcatenatedTags(raw) {
   if (!raw) return [];
   raw = raw.toUpperCase();
+
+  // 非HEX形式（BT-0001等）はそのまま返す
+  if (!TAG_HEX_REGEX.test(raw)) return [raw];
 
   // 方式1（高速）: 24文字固定長で分割
   if (raw.length >= TAG_LENGTH && TAG_HEX_REGEX.test(raw)) {
