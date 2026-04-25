@@ -1005,9 +1005,11 @@ document.addEventListener('DOMContentLoaded', function() {
     if (_pendingTags.length === 0) return;
     var batch = _pendingTags;
     _pendingTags = [];
+    var totalNew = 0;
     for (var i = 0; i < batch.length; i++) {
-      addTagSilent(batch[i]);
+      totalNew += addTagSilent(batch[i]);
     }
+    if (totalNew > 0 && navigator.vibrate) navigator.vibrate(50);
     updateTagDisplay();
     if (currentMode === 'stocktake') updateStocktakeTagDisplay();
     if (currentMode === 'warehouse') updateWarehouseTagDisplay();
@@ -1299,15 +1301,21 @@ function startBridgeScan() {
 
   bridgeInventoryScan(15000)
     .then(function(epcs) {
-      var added = 0;
+      var newlyAdded = 0;
       epcs.forEach(function(epc) {
-        addTagSilent(epc);
-        added++;
+        newlyAdded += addTagSilent(epc);
       });
       updateTagDisplay();
       if (currentMode === 'stocktake') updateStocktakeTagDisplay();
       if (currentMode === 'warehouse') updateWarehouseTagDisplay();
-      toast('Bridge: ' + epcs.length + '個検出, ' + scannedTags.length + '件登録', 'ok');
+      if (newlyAdded > 0) {
+        if (navigator.vibrate) navigator.vibrate(100);
+        toast('Bridge: ' + newlyAdded + '件新規追加 (検出: ' + epcs.length + '個)', 'ok');
+      } else if (epcs.length > 0) {
+        toast('Bridge: 新規タグなし (既読: ' + epcs.length + '個)', 'ok');
+      } else {
+        toast('Bridge: タグが検出されませんでした', 'err');
+      }
       stopScan();
     })
     .catch(function(e) {
@@ -1355,10 +1363,12 @@ function stopScan() {
 }
 
 // ==================== タグ追加 ====================
+// 戻り値: 新規追加されたタグ数（重複は0）
 function addTagSilent(tagId) {
   tagId = tagId.trim().toUpperCase();
-  if (!tagId) return;
+  if (!tagId) return 0;
   var splitTags = splitConcatenatedTags(tagId);
+  var newCount = 0;
   splitTags.forEach(function(tid) {
     // HEX形式: プレフィックスチェック、非HEX形式（BT-0001等）: レガシータグとして受入
     var isHex = TAG_HEX_REGEX.test(tid);
@@ -1386,38 +1396,45 @@ function addTagSilent(tagId) {
         if (scannedTagSet[tid]) return;
         scannedTagSet[tid] = true;
         scannedTags.push(tid);
+        newCount++;
       } else {
         if (unknownTagSet[tid]) return;
         unknownTagSet[tid] = true;
         unknownTags.push(tid);
+        newCount++;
       }
     } else if (currentMode === 'stocktake') {
       if (isKnown) {
         if (stockTagSet[tid]) return;
         stockTagSet[tid] = true;
         stockTags.push(tid);
+        newCount++;
       } else {
         if (stockUnknownTagSet[tid]) return;
         stockUnknownTagSet[tid] = true;
         stockUnknownTags.push(tid);
+        newCount++;
       }
     } else if (currentMode === 'warehouse') {
       if (isKnown) {
         if (warehouseTagSet[tid]) return;
         warehouseTagSet[tid] = true;
         warehouseTags.push(tid);
+        newCount++;
       } else {
         if (warehouseUnknownTagSet[tid]) return;
         warehouseUnknownTagSet[tid] = true;
         warehouseUnknownTags.push(tid);
+        newCount++;
       }
     }
   });
+  return newCount;
 }
 
 function addTag(tagId) {
-  addTagSilent(tagId);
-  if (navigator.vibrate) navigator.vibrate(50);
+  var added = addTagSilent(tagId);
+  if (added > 0 && navigator.vibrate) navigator.vibrate(50);
   updateTagDisplay();
 }
 
@@ -1714,10 +1731,11 @@ function startStocktake() {
     document.getElementById('stocktake-scan-label').textContent = 'Bridge API読取中... (' + propName + ')';
     bridgeInventoryScan(15000)
       .then(function(epcs) {
-        epcs.forEach(function(epc) { addTagSilent(epc); });
+        var newlyAdded = 0;
+        epcs.forEach(function(epc) { newlyAdded += addTagSilent(epc); });
         updateStocktakeTagDisplay();
-        document.getElementById('stocktake-scan-label').textContent = 'Bridge: ' + epcs.length + '個検出 (' + propName + ')';
-        toast('Bridge: ' + epcs.length + '個検出', 'ok');
+        document.getElementById('stocktake-scan-label').textContent = 'Bridge: ' + newlyAdded + '件新規 / ' + epcs.length + '個検出 (' + propName + ')';
+        toast(newlyAdded > 0 ? 'Bridge: ' + newlyAdded + '件新規追加' : 'Bridge: 新規タグなし', 'ok');
       })
       .catch(function(e) {
         toast('Bridge APIエラー: ' + e.message + ' — DataWedge方式に切替', 'err');
@@ -2352,9 +2370,10 @@ function startStainRemoval() {
   if (bridgeAvailable) {
     bridgeInventoryScan(15000)
       .then(function(epcs) {
-        epcs.forEach(function(epc) { addTagSilent(epc); });
+        var newlyAdded = 0;
+        epcs.forEach(function(epc) { newlyAdded += addTagSilent(epc); });
         updateWarehouseTagDisplay();
-        toast('Bridge: ' + epcs.length + '個検出', 'ok');
+        toast(newlyAdded > 0 ? 'Bridge: ' + newlyAdded + '件新規追加' : 'Bridge: 新規タグなし', 'ok');
       })
       .catch(function(e) {
         toast('Bridge APIエラー: ' + e.message + ' — DataWedge方式に切替', 'err');
