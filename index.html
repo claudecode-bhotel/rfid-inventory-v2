@@ -1147,11 +1147,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ==================== API通信 ====================
 function apiGet(action, params) {
-  var url = API_URL + '?action=' + action;
+  var url = API_URL + '?action=' + action + '&_t=' + Date.now();
   if (params) {
     Object.keys(params).forEach(function(k) { url += '&' + k + '=' + encodeURIComponent(params[k]); });
   }
-  return fetch(url).then(function(r) { return r.json(); });
+  return fetch(url, { cache: 'no-store' }).then(function(r) { return r.json(); });
 }
 
 function apiPost(body) {
