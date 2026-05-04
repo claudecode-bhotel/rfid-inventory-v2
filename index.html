@@ -781,7 +781,18 @@ function _getScanAudioCtx() {
   return _scanAudioCtx;
 }
 
-function playScanBeep(count) {
+function playScanNotify(count) {
+  // 振動パターン: 新規タグ数に応じて振動（振動200ms + 休止100ms）× 回数、最大5回
+  if (navigator.vibrate) {
+    var playCount = Math.min(count, 5);
+    var pattern = [];
+    for (var i = 0; i < playCount; i++) {
+      pattern.push(200);
+      if (i < playCount - 1) pattern.push(100);
+    }
+    navigator.vibrate(pattern);
+  }
+  // 音も併用（デバイス音量が上がっていれば聞こえる）
   var ctx = _getScanAudioCtx();
   if (!ctx) return;
   var baseFreq = 1800, duration = 0.12, gap = 0.05;
@@ -836,8 +847,7 @@ function startBridgeActionScan(actionId) {
       epcs.forEach(function(epc) { newlyAdded += addTagToAction(actionId, epc); });
       updateActionTagDisplay(actionId);
       if (newlyAdded > 0) {
-        playScanBeep(newlyAdded);
-        if (navigator.vibrate) navigator.vibrate(100);
+        playScanNotify(newlyAdded);
         toast('Bridge: ' + newlyAdded + '件新規追加 (検出: ' + epcs.length + '個)', 'ok');
       } else if (epcs.length > 0) {
         toast('Bridge: 新規タグなし (既読: ' + epcs.length + '個)', 'ok');
@@ -1421,7 +1431,7 @@ function loadTestTags() {
 function addTestTag(tagId) {
   if (!currentAction) { toast('先にアクションを選択してください', 'err'); return; }
   var added = addTagToAction(currentAction, tagId);
-  if (added > 0) { playScanBeep(1); if (navigator.vibrate) navigator.vibrate(50); }
+  if (added > 0) { playScanNotify(1); }
   updateActionTagDisplay(currentAction);
 }
 
@@ -1504,8 +1514,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var totalNew = 0;
     for (var i = 0; i < batch.length; i++) totalNew += addTagToAction(currentAction, batch[i]);
     if (totalNew === 0) return;
-    playScanBeep(totalNew);
-    if (navigator.vibrate) navigator.vibrate(50);
+    playScanNotify(totalNew);
     updateActionTagDisplay(currentAction);
   }
 
