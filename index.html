@@ -654,6 +654,9 @@ textarea { min-height: 80px; resize: vertical; font-family: monospace; font-size
 <script>
 // ==================== 設定 ====================
 var DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbw1iriaUOm-TfbkGG1rw1SHguCDKUcWiVjFBNE0vCHCnUosxYcjZuG_SeGl9L0FgA/exec';
+// GAS配信時: リダイレクト先のURLからデプロイURLを自動検出できないため、
+// GAS内ではgoogle.script.run経由でURLを取得する方法もあるが、
+// 現状はDEFAULT_API_URLをそのまま使用する
 localStorage.removeItem('rfid_api_url');
 var API_URL = DEFAULT_API_URL;
 
@@ -768,6 +771,37 @@ function setupPropertyChange(actionId) {
   };
 }
 
+// ==================== スキャン通知音 ====================
+var _scanAudioCtx = null;
+function _getScanAudioCtx() {
+  if (!_scanAudioCtx) {
+    try { _scanAudioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+  }
+  if (_scanAudioCtx && _scanAudioCtx.state === 'suspended') _scanAudioCtx.resume();
+  return _scanAudioCtx;
+}
+
+function playScanBeep(count) {
+  var ctx = _getScanAudioCtx();
+  if (!ctx) return;
+  var baseFreq = 1200, duration = 0.08, gap = 0.04;
+  var playCount = Math.min(count, 5);
+  for (var i = 0; i < playCount; i++) {
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = baseFreq;
+    gain.gain.value = 0.3;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    var t = ctx.currentTime + i * (duration + gap);
+    osc.start(t);
+    gain.gain.setValueAtTime(0.3, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + duration);
+    osc.stop(t + duration);
+  }
+}
+
 // ==================== スキャン機能 ====================
 function toggleActionScan(actionId) {
   var state = getActionState(actionId);
@@ -777,6 +811,7 @@ function toggleActionScan(actionId) {
 
 function startActionScan(actionId) {
   currentAction = actionId;
+  _getScanAudioCtx();
   if (bridgeAvailable) startBridgeActionScan(actionId);
   else startDataWedgeActionScan(actionId);
 }
@@ -801,6 +836,7 @@ function startBridgeActionScan(actionId) {
       epcs.forEach(function(epc) { newlyAdded += addTagToAction(actionId, epc); });
       updateActionTagDisplay(actionId);
       if (newlyAdded > 0) {
+        playScanBeep(newlyAdded);
         if (navigator.vibrate) navigator.vibrate(100);
         toast('Bridge: ' + newlyAdded + '件新規追加 (検出: ' + epcs.length + '個)', 'ok');
       } else if (epcs.length > 0) {
@@ -1385,7 +1421,7 @@ function loadTestTags() {
 function addTestTag(tagId) {
   if (!currentAction) { toast('先にアクションを選択してください', 'err'); return; }
   var added = addTagToAction(currentAction, tagId);
-  if (added > 0 && navigator.vibrate) navigator.vibrate(50);
+  if (added > 0) { playScanBeep(1); if (navigator.vibrate) navigator.vibrate(50); }
   updateActionTagDisplay(currentAction);
 }
 
@@ -1468,6 +1504,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var totalNew = 0;
     for (var i = 0; i < batch.length; i++) totalNew += addTagToAction(currentAction, batch[i]);
     if (totalNew === 0) return;
+    playScanBeep(totalNew);
     if (navigator.vibrate) navigator.vibrate(50);
     updateActionTagDisplay(currentAction);
   }
