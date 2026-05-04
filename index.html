@@ -1482,7 +1482,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // ==================== DataWedge高速入力ハンドラ ====================
   var scanInput = document.getElementById('scan-input');
-  var _pendingTags = [], _displayTimer = null, DISPLAY_DEBOUNCE_MS = 300;
+  var _displayTimer = null, DISPLAY_DEBOUNCE_MS = 150;
   var _charBuffer = '', _charTimer = null, CHAR_FLUSH_MS = 30;
 
   function _extractTagsFromBuffer() {
@@ -1491,31 +1491,24 @@ document.addEventListener('DOMContentLoaded', function() {
     if (buf.length >= TAG_LENGTH) {
       while (buf.length >= TAG_LENGTH) {
         var c = buf.substring(0, TAG_LENGTH);
-        if (TAG_HEX_REGEX.test(c)) { _queueTag(c); buf = buf.substring(TAG_LENGTH); }
+        if (TAG_HEX_REGEX.test(c)) { _processTagImmediate(c); buf = buf.substring(TAG_LENGTH); }
         else buf = buf.substring(1);
       }
       if (buf.length > 0 && TAG_HEX_REGEX.test(buf)) _charBuffer = buf;
-    } else if (TAG_HEX_REGEX.test(buf) && buf.length >= 16) _queueTag(buf);
+    } else if (TAG_HEX_REGEX.test(buf) && buf.length >= 16) _processTagImmediate(buf);
     else _charBuffer = buf;
   }
 
-  function _queueTag(val) {
+  function _processTagImmediate(val) {
     if (!val || !currentAction) return;
     var state = getActionState(currentAction);
     if (!state.isScanning) return;
-    _pendingTags.push(val);
+    var added = addTagToAction(currentAction, val);
+    if (added > 0) {
+      playScanNotify(1);
+    }
     if (_displayTimer) clearTimeout(_displayTimer);
-    _displayTimer = setTimeout(_flushPendingTags, DISPLAY_DEBOUNCE_MS);
-  }
-
-  function _flushPendingTags() {
-    if (_pendingTags.length === 0 || !currentAction) return;
-    var batch = _pendingTags; _pendingTags = [];
-    var totalNew = 0;
-    for (var i = 0; i < batch.length; i++) totalNew += addTagToAction(currentAction, batch[i]);
-    if (totalNew === 0) return;
-    playScanNotify(totalNew);
-    updateActionTagDisplay(currentAction);
+    _displayTimer = setTimeout(function() { updateActionTagDisplay(currentAction); }, DISPLAY_DEBOUNCE_MS);
   }
 
   scanInput.addEventListener('keydown', function(e) {
@@ -1550,8 +1543,8 @@ document.addEventListener('DOMContentLoaded', function() {
       if (_gkTimer) clearTimeout(_gkTimer);
       var buf = _gkBuf.trim().toUpperCase(); _gkBuf = '';
       if (buf) {
-        while (buf.length >= TAG_LENGTH) { var tag = buf.substring(0, TAG_LENGTH); if (TAG_HEX_REGEX.test(tag)) _queueTag(tag); buf = buf.substring(TAG_LENGTH); }
-        if (buf.length >= 16 && TAG_HEX_REGEX.test(buf)) _queueTag(buf);
+        while (buf.length >= TAG_LENGTH) { var tag = buf.substring(0, TAG_LENGTH); if (TAG_HEX_REGEX.test(tag)) _processTagImmediate(tag); buf = buf.substring(TAG_LENGTH); }
+        if (buf.length >= 16 && TAG_HEX_REGEX.test(buf)) _processTagImmediate(buf);
       }
       return;
     }
@@ -1560,11 +1553,11 @@ document.addEventListener('DOMContentLoaded', function() {
       if (_gkBuf.length >= TAG_LENGTH) {
         if (_gkTimer) clearTimeout(_gkTimer);
         var buf = _gkBuf.toUpperCase(); _gkBuf = '';
-        while (buf.length >= TAG_LENGTH) { var tag = buf.substring(0, TAG_LENGTH); if (TAG_HEX_REGEX.test(tag)) _queueTag(tag); buf = buf.substring(TAG_LENGTH); }
+        while (buf.length >= TAG_LENGTH) { var tag = buf.substring(0, TAG_LENGTH); if (TAG_HEX_REGEX.test(tag)) _processTagImmediate(tag); buf = buf.substring(TAG_LENGTH); }
         if (buf.length > 0) _gkBuf = buf;
       } else {
         if (_gkTimer) clearTimeout(_gkTimer);
-        _gkTimer = setTimeout(function() { var val = _gkBuf.trim().toUpperCase(); if (val && val.length >= 16 && TAG_HEX_REGEX.test(val)) _queueTag(val); _gkBuf = ''; }, GK_TIMEOUT);
+        _gkTimer = setTimeout(function() { var val = _gkBuf.trim().toUpperCase(); if (val && val.length >= 16 && TAG_HEX_REGEX.test(val)) _processTagImmediate(val); _gkBuf = ''; }, GK_TIMEOUT);
       }
     }
   });
