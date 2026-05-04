@@ -782,35 +782,28 @@ function _getScanAudioCtx() {
 }
 
 function playScanNotify(count) {
-  // 振動パターン: 新規タグ数に応じて振動（振動200ms + 休止100ms）× 回数、最大5回
+  // 振動: 新規タグ数に応じて1回の振動の長さを変える
+  // 1〜3件: 短い振動(150ms)、4〜10件: 中振動(300ms)、11件以上: 長振動(500ms)
   if (navigator.vibrate) {
-    var playCount = Math.min(count, 5);
-    var pattern = [];
-    for (var i = 0; i < playCount; i++) {
-      pattern.push(200);
-      if (i < playCount - 1) pattern.push(100);
-    }
-    navigator.vibrate(pattern);
+    var ms = count <= 3 ? 150 : count <= 10 ? 300 : 500;
+    navigator.vibrate(ms);
   }
-  // 音も併用（デバイス音量が上がっていれば聞こえる）
+  // 音: 1回のビープ（長さを件数に応じて変える）
   var ctx = _getScanAudioCtx();
   if (!ctx) return;
-  var baseFreq = 1800, duration = 0.12, gap = 0.05;
-  var playCount = Math.min(count, 5);
-  for (var i = 0; i < playCount; i++) {
-    var osc = ctx.createOscillator();
-    var gain = ctx.createGain();
-    osc.type = 'square';
-    osc.frequency.value = baseFreq;
-    gain.gain.value = 1.0;
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    var t = ctx.currentTime + i * (duration + gap);
-    osc.start(t);
-    gain.gain.setValueAtTime(1.0, t);
-    gain.gain.exponentialRampToValueAtTime(0.01, t + duration);
-    osc.stop(t + duration);
-  }
+  var duration = count <= 3 ? 0.1 : count <= 10 ? 0.2 : 0.35;
+  var osc = ctx.createOscillator();
+  var gain = ctx.createGain();
+  osc.type = 'square';
+  osc.frequency.value = 1800;
+  gain.gain.value = 1.0;
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  var t = ctx.currentTime;
+  osc.start(t);
+  gain.gain.setValueAtTime(1.0, t);
+  gain.gain.exponentialRampToValueAtTime(0.01, t + duration);
+  osc.stop(t + duration);
 }
 
 // ==================== スキャン機能 ====================
@@ -1483,6 +1476,8 @@ document.addEventListener('DOMContentLoaded', function() {
   // ==================== DataWedge高速入力ハンドラ ====================
   var scanInput = document.getElementById('scan-input');
   var _displayTimer = null, DISPLAY_DEBOUNCE_MS = 150;
+  var _notifyTimer = null, NOTIFY_DEBOUNCE_MS = 300;
+  var _newTagBatchCount = 0;
   var _charBuffer = '', _charTimer = null, CHAR_FLUSH_MS = 30;
 
   function _extractTagsFromBuffer() {
@@ -1504,11 +1499,18 @@ document.addEventListener('DOMContentLoaded', function() {
     var state = getActionState(currentAction);
     if (!state.isScanning) return;
     var added = addTagToAction(currentAction, val);
-    if (added > 0) {
-      playScanNotify(1);
-    }
+    if (added > 0) _newTagBatchCount += added;
+    if (_notifyTimer) clearTimeout(_notifyTimer);
+    _notifyTimer = setTimeout(_flushNotification, NOTIFY_DEBOUNCE_MS);
     if (_displayTimer) clearTimeout(_displayTimer);
     _displayTimer = setTimeout(function() { updateActionTagDisplay(currentAction); }, DISPLAY_DEBOUNCE_MS);
+  }
+
+  function _flushNotification() {
+    if (_newTagBatchCount > 0) {
+      playScanNotify(_newTagBatchCount);
+      _newTagBatchCount = 0;
+    }
   }
 
   scanInput.addEventListener('keydown', function(e) {
